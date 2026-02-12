@@ -228,27 +228,31 @@
 
     <!-- Product Card Template -->
     <script type="text/template" id="product-card-template">
-                            <span class="material-icons">expand_more</span>
-                        </a>
-                    </div>
+        <fieldset class="group-container">
+            <legend class="group-header">
+                <span class="expand-icon glyphicon glyphicon-chevron-down" data-id="<%= id %>" title="Expand Details"></span>
+                <%= manufacturer %> <%= model %> 
+                <span class="pull-right text-muted" style="font-size: 0.8em; margin-top: 5px;">Qty: <%= quantity %></span>
+            </legend>
+            <div class="row">
+                <div class="col-xs-6">
+                    <strong>Grade:</strong> <%= grade %><br>
+                    <strong>Warehouse:</strong> <%= warehouse %>
+                </div>
+                <div class="col-xs-6 text-right">
+                    <h4 class="text-success" style="margin-top: 0;">$<%= price.toFixed(2) %></h4>
                 </div>
             </div>
-            <!-- Expanded Details View -->
-            <div class="details-view" id="details-<%= id %>">
-                <% _.each(items, function(item) { %>
-                    <div class="sku-row">
-                        <div class="sku-info">
-                            <strong>SKU:</strong> <%= item.itemNumber %> | 
-                            <strong>Warehouse:</strong> <%= item.attributes.warehouse %> |
-                            <strong>Color:</strong> <%= item.attributes.color || 'N/A' %>
-                        </div>
-                        <div class="sku-actions">
-                            <span class="price-tag" style="font-weight: bold; margin-right: 10px;">$<%= item.price %></span>
-                            <button class="btn btn-default btn-sm">OFFER</button>
-                            <button class="btn btn-primary btn-sm btn-buy" data-sku="<%= item.itemNumber %>">BUY</button>
-                        </div>
-                    </div>
-                <% }); %>
+            
+            <div class="details-view" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                <p class="text-info">
+                    <strong>Description:</strong> <%= description %><br>
+                    <strong>SKU:</strong> <%= typeof sku !== 'undefined' ? sku : 'N/A' %>
+                </p>
+                <div class="text-right">
+                    <button class="btn btn-default btn-offer" data-id="<%= id %>">OFFER</button>
+                    <button class="btn btn-success btn-buy" data-id="<%= id %>">BUY</button>
+                </div>
             </div>
         </fieldset>
     </script>

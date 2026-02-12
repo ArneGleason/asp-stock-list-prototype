@@ -55,8 +55,9 @@
                 id: i,
                 description: `${model} ${Math.floor(Math.random() * 256)}GB`,
                 category: cat,
-                manufacturer: mfr, // Added explicit manufacturer
-                model: model, // Added explicit model for filtering
+                manufacturer: mfr,
+                model: model,
+                sku: `SKU-${10000 + i}`, // Added SKU at root for easier access
                 warehouse: wh,
                 grade: grade,
                 quantity: qty,

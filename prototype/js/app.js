@@ -299,8 +299,8 @@ $(function () {
 
         openBuyModal: function (e) {
             e.preventDefault();
-            const sku = $(e.currentTarget).data('sku');
-            const model = this.collection.find(m => m.get('sku') === sku);
+            const id = $(e.currentTarget).data('id');
+            const model = this.collection.get(id);
 
             if (model) {
                 this.modal.open(model, 'buy');
@@ -309,8 +309,8 @@ $(function () {
 
         openOfferModal: function (e) {
             e.preventDefault();
-            const sku = $(e.currentTarget).data('sku');
-            const model = this.collection.find(m => m.get('sku') === sku);
+            const id = $(e.currentTarget).data('id');
+            const model = this.collection.get(id);
             if (model) {
                 this.modal.open(model, 'offer');
             }
@@ -532,12 +532,10 @@ $(function () {
                 this.$('#offer-disclaimer').hide();
                 this.$('#modal-mode-toggle').text('Make an Offer');
                 this.$('#modal-submit-btn').text('ADD TO CART');
-                this.$('.modal-title').text('Add to Cart'); // Or generic title? UAT keeps item name
             } else {
                 this.$('#modal-offer-price-group').show();
                 this.$('#offer-disclaimer').show();
                 this.$('#modal-mode-toggle').text('Buy Now'); // Switch back
-                this.$('#modal-submit-btn').text('SUBMIT OFFER'); // UAT says "ADD TO CART" but this is clearer for prototype? User said "Add to Cart" in observation. Let's stick to UAT "ADD TO CART" but maybe clarify in alert.
                 this.$('#modal-submit-btn').text('ADD TO CART');
             }
         },
