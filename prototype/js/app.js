@@ -284,7 +284,7 @@ $(function () {
         },
 
         events: {
-            'click .expand-icon': 'toggleDetails',
+            'click .card-header-row': 'toggleDetails',
             'click .btn-buy': 'openBuyModal',
             'click .btn-offer': 'openOfferModal',
             'click .remove-single-filter': 'removeOneFilter',
@@ -292,15 +292,25 @@ $(function () {
         },
 
         toggleDetails: function (e) {
-            const id = $(e.currentTarget).data('id');
-            const card = $(e.currentTarget).closest('fieldset');
-            card.find('.details-view').slideToggle();
+            const header = $(e.currentTarget);
+            const card = header.closest('.product-card');
+            const body = card.find('.card-body');
+            const chevron = header.find('.chevron');
+
+            body.slideToggle(200);
+            chevron.toggleClass('expanded');
         },
 
         openBuyModal: function (e) {
             e.preventDefault();
+            e.stopPropagation(); // Prevent card collapse
             const id = $(e.currentTarget).data('id');
             const model = this.collection.get(id);
+            // Optional: If we want to pre-select the specific variant color/sku in the modal, we'd need to pass that info.
+            // For now, let's just open the generic item modal as before. 
+            // Better: update modal to set specific price/sku if passed? 
+            // The modal uses 'model.toJSON()'.
+            // Let's pass the specific SKU in the modal usage if we can.
 
             if (model) {
                 this.modal.open(model, 'buy');
@@ -309,6 +319,7 @@ $(function () {
 
         openOfferModal: function (e) {
             e.preventDefault();
+            e.stopPropagation();
             const id = $(e.currentTarget).data('id');
             const model = this.collection.get(id);
             if (model) {

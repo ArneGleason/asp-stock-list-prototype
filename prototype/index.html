@@ -228,33 +228,40 @@
 
     <!-- Product Card Template -->
     <script type="text/template" id="product-card-template">
-        <fieldset class="group-container">
-            <legend class="group-header">
-                <span class="expand-icon glyphicon glyphicon-chevron-down" data-id="<%= id %>" title="Expand Details"></span>
-                <%= manufacturer %> <%= model %> 
-                <span class="pull-right text-muted" style="font-size: 0.8em; margin-top: 5px;">Qty: <%= quantity %></span>
-            </legend>
-            <div class="row">
-                <div class="col-xs-6">
-                    <strong>Grade:</strong> <%= grade %><br>
-                    <strong>Warehouse:</strong> <%= warehouse %>
+        <div class="product-card">
+            <!-- Header (Collapsed) -->
+            <div class="card-header-row" data-id="<%= id %>">
+                <div class="header-left">
+                    <span class="material-icons chevron">chevron_right</span>
+                    <span class="product-title"><%= model %></span> <!-- already includes capacity -->
+                    <span class="variant-badge"><%= variants.length %> Variant<%= variants.length !== 1 ? 's' : '' %></span>
+                    <span class="total-qty">Qty: <%= quantity %></span>
                 </div>
-                <div class="col-xs-6 text-right">
-                    <h4 class="text-success" style="margin-top: 0;">$<%= price.toFixed(2) %></h4>
-                </div>
-            </div>
-            
-            <div class="details-view" style="display:none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
-                <p class="text-info">
-                    <strong>Description:</strong> <%= description %><br>
-                    <strong>SKU:</strong> <%= typeof sku !== 'undefined' ? sku : 'N/A' %>
-                </p>
-                <div class="text-right">
-                    <button class="btn btn-default btn-offer" data-id="<%= id %>">OFFER</button>
-                    <button class="btn btn-success btn-buy" data-id="<%= id %>">BUY</button>
+                <div class="header-right">
+                    <span class="chip warehouse"><%= warehouse %></span>
+                    <span class="chip grade"><%= grade %></span>
+                    <span class="price-range"><%= priceRange %></span>
                 </div>
             </div>
-        </fieldset>
+
+            <!-- Body (Expanded) -->
+            <div class="card-body">
+                <% _.each(variants, function(variant) { %>
+                    <div class="variant-row">
+                        <div class="variant-info">
+                            <span class="variant-color"><%= variant.color %></span>
+                            <span class="variant-sku"><%= variant.sku %></span>
+                            <span class="variant-qty text-muted">Qty: <%= variant.quantity %></span>
+                        </div>
+                        <div class="variant-actions">
+                            <span class="variant-price">$<%= variant.price.toFixed(2) %></span>
+                            <button class="btn btn-default btn-offer" data-id="<%= id %>" data-sku="<%= variant.sku %>">OFFER</button>
+                            <button class="btn btn-primary btn-buy" data-id="<%= id %>" data-sku="<%= variant.sku %>">BUY</button>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
     </script>
 
     <!-- Scripts -->

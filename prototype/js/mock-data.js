@@ -29,54 +29,99 @@
         'Dell': 'Dell'
     };
 
-    // Generate ~500 items
+    // Generate ~500 items, grouped by Model+Capacity+Grade+Warehouse
     const generateData = () => {
-        const data = [];
+        const groups = {}; // Key: "Model|Capacity|Grade|Warehouse"
+
+        const COLORS = ['Space Gray', 'Silver', 'Gold', 'Midnight Green', 'Blue', 'Red', 'Graphite', 'Sierra Blue'];
+
         for (let i = 0; i < 600; i++) {
             const cat = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
             const models = MODELS[cat];
-            const model = models[Math.floor(Math.random() * models.length)];
+            const modelName = models[Math.floor(Math.random() * models.length)];
+            const capacity = `${[64, 128, 256, 512][Math.floor(Math.random() * 4)]}GB`;
             const grade = GRADES[Math.floor(Math.random() * GRADES.length)];
             const wh = WAREHOUSES[Math.floor(Math.random() * WAREHOUSES.length)];
-            const qty = Math.floor(Math.random() * 50); // Some will be 0
-            const price = 100 + Math.floor(Math.random() * 900);
+            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+            const qty = Math.floor(Math.random() * 50);
+            // Base price based on model roughly (randomized for prototype)
+            let basePrice = 100 + Math.floor(Math.random() * 900);
 
             // Determine Manufacturer
             let mfr = 'Other';
             for (const key in MANUFACTURERS) {
-                if (model.includes(key)) {
+                if (modelName.includes(key)) {
                     mfr = MANUFACTURERS[key];
                     break;
                 }
             }
 
-            // Create group structure
-            data.push({
-                id: i,
-                description: `${model} ${Math.floor(Math.random() * 256)}GB`,
-                category: cat,
-                manufacturer: mfr,
-                model: model,
-                sku: `SKU-${10000 + i}`, // Added SKU at root for easier access
-                warehouse: wh,
-                grade: grade,
-                quantity: qty,
-                price: price, // Base price
-                items: [
-                    {
-                        itemNumber: `SKU-${10000 + i}`,
-                        quantity: qty,
-                        price: price,
-                        attributes: {
-                            manufacturer: mfr,
-                            model: model,
-                            warehouse: wh
-                        }
+            // Grouping Key
+            const groupKey = `${mfr}|${modelName}|${capacity}|${grade}|${wh}`;
+
+            if (!groups[groupKey]) {
+                groups[groupKey] = {
+                    id: `group-${Object.keys(groups).length}`,
+                    manufacturer: mfr,
+                    model: `${modelName} ${capacity}`, // Display name
+                    rawModel: modelName,
+                    capacity: capacity,
+                    grade: grade,
+                    warehouse: wh,
+                    category: cat,
+                    quantity: 0,
+                    minPrice: Infinity,
+                    maxPrice: -Infinity,
+                    variants: []
+                };
+            }
+
+            const sku = `SKU-${10000 + i}`;
+            const price = basePrice + (Math.floor(Math.random() * 50)); // Slight variance per item/color
+
+            // Add Variant (Color)
+            // Check if this color already exists in group? 
+            // For prototype, let's assume multiple items of same color is fine, but usually variants are unique by color.
+            // Let's aggregate qty if color exists.
+
+            let variant = groups[groupKey].variants.find(v => v.color === color);
+            if (variant) {
+                variant.quantity += qty;
+                // keep price logic simple, maybe average or just keep first
+            } else {
+                groups[groupKey].variants.push({
+                    sku: sku,
+                    color: color,
+                    quantity: qty,
+                    price: price,
+                    itemNumber: sku, // consistency
+                    attributes: {
+                        warehouse: wh,
+                        color: color,
+                        grade: grade
                     }
-                ]
-            });
+                });
+            }
+
+            // Update Group Aggregates
+            groups[groupKey].quantity += qty;
+            groups[groupKey].minPrice = Math.min(groups[groupKey].minPrice, price);
+            groups[groupKey].maxPrice = Math.max(groups[groupKey].maxPrice, price);
         }
-        return data;
+
+        // Convert groups object to array
+        return Object.values(groups).map(g => {
+            // Fix infinite price if no quantity (though we generated mostly positive qtys)
+            if (g.minPrice === Infinity) g.minPrice = 0;
+            if (g.maxPrice === -Infinity) g.maxPrice = 0;
+
+            // Format price range string
+            g.priceRange = g.minPrice === g.maxPrice ? `$${g.minPrice}` : `$${g.minPrice} - $${g.maxPrice}`;
+            g.price = g.minPrice; // For sorting
+
+            return g;
+        });
     };
 
     const ALL_DATA = generateData();
@@ -88,166 +133,86 @@
 
             // 1. Filtering
             let filtered = ALL_DATA.filter(item => {
-                // Category Filter
-                if (params.category && params.category.length > 0) {
-                    if (!params.category.includes(item.category)) return false;
-                }
+                if (params.category && params.category.length > 0 && !params.category.includes(item.category)) return false;
+                if (params.manufacturer && params.manufacturer.length > 0 && !params.manufacturer.includes(item.manufacturer)) return false;
+                if (params.model && params.model.length > 0 && !params.model.includes(item.rawModel)) return false;
+                if (params.warehouse && params.warehouse.length > 0 && !params.warehouse.includes(item.warehouse)) return false;
+                if (params.grade && params.grade.length > 0 && !params.grade.includes(item.grade)) return false;
+                if (params.includeOos !== 'true' && params.includeOos !== true && item.quantity === 0) return false;
 
-                // Manufacturer Filter
-                if (params.manufacturer && params.manufacturer.length > 0) {
-                    if (!params.manufacturer.includes(item.manufacturer)) return false;
-                }
-
-                // Model Filter (Matches description loosely for this prototype, or we could match exact model string if we had it normalized)
-                if (params.model && params.model.length > 0) {
-                    // Our description is "Model + Capacity". Let's check if description starts with one of the selected models
-                    // Or better, check if the item's model is in the list (we need to pass model correctly)
-                    // In generateData, 'model' variable is the clean model name.
-                    // But 'item' only has description. Let's fix generateData to include raw model too.
-                    // WAIT: I added manufacturer to item in generateData above. I should also add 'modelName' or similar.
-                    // Let's assume description contains it.
-                    // Actually, let's look at generateData again.
-                    // I'll update generateData to include 'model' property in the root object for easier filtering.
-                }
-
-                // Warehouse Filter
-                if (params.warehouse && params.warehouse.length > 0) {
-                    if (!params.warehouse.includes(item.warehouse)) return false;
-                }
-
-                // Grade Filter
-                if (params.grade && params.grade.length > 0) {
-                    if (!params.grade.includes(item.grade)) return false;
-                }
-
-                // Out of Stock Filter
-                if (params.includeOos !== 'true' && params.includeOos !== true) {
-                    if (item.quantity === 0) return false;
-                }
-
-                // Search Filter
                 if (params.search && params.search.length > 0) {
                     const term = params.search.toLowerCase();
-                    if (!item.description.toLowerCase().includes(term)) return false;
+                    if (!item.model.toLowerCase().includes(term)) return false;
                 }
 
                 return true;
             });
 
-            // Re-filter for model specifically now that I realized I need to access the raw model name
-            // I will inject 'model' into the root object in generateData in this same edit to make this safe.
-            if (params.model && params.model.length > 0) {
-                filtered = filtered.filter(item => params.model.includes(item.model));
-            }
+            // 2. Sorting (Default to Model ASC)
+            filtered.sort((a, b) => a.model.localeCompare(b.model));
 
+            // 3. Facets (Simplified Reuse)
+            // Just returning counts based on the current filtered set implies "narrowing" behavior. 
+            // The previous logic was slightly better but complex. Let's stick to the simple "count in filtered set" for now 
+            // or perform a quick re-run for counts if needed. 
+            // Actually, let's just use the filtered set for counts for speed in prototype.
+            // It means if you select "Apple", Samsung count becomes 0. That's "Drill Down". 
+            // User asked for "chips", so maybe Drill Down is okay.
 
-            // 2. Sorting (Default to Description ASC for now as observed)
-            filtered.sort((a, b) => a.description.localeCompare(b.description));
+            // ... Actually, let's keep the slightly smarter logic from before:
+            // "Global" filters (Search, OOS) apply to everything.
+            // "Peer" filters apply to everything except the facet's own category.
 
-            // Helper for counts
-            const getCount = (field, value) => {
-                // Counts should reflect "what if I selected this?" OR "current view + this option"? 
-                // Usually standard faceted search counts show items matching current criteria + this specific facet value.
-                // For simplicity in this mock, let's just count in the currently filtered set? 
-                // NO, standard behavior:
-                // Category counts: filtered by everything EXCEPT category.
-                // Manufacturer counts: filtered by Category + other filters, but NOT manufacturer (so you see peers).
-                // For this prototype, let's keep it simple: Count items in the *current context* if we are strictly hierarchical.
-                // Actually, if I select "Apple", I still want to see "Samsung (5)" to switch.
-                // So, counts for a facet should use filters from PARENT levels, but ignore filters at CURRENT level.
-
-                // However, implementing full "multi-select facet counts" in a mock is complex.
-                // Let's just return counts of items that match ALL OTHER criteria.
-                return ALL_DATA.filter(d =>
-                    (d[field] === value) &&
-                    (params.includeOos === 'true' || d.quantity > 0) &&
-                    // Apply other active filters? 
-                    // For Category: Ignore category filter.
-                    // For match: 
-                    (!params.warehouse || params.warehouse.length === 0 || params.warehouse.includes(d.warehouse)) &&
-                    (!params.search || !params.search.length || d.description.toLowerCase().includes(params.search.toLowerCase()))
-                    // simplified
-                ).length;
-            };
-
-            // Better Count Logic (Simplified for Prototype speed):
-            // Just filter ALL_DATA by "Global Filters" (Search, OOS) first.
             let baseData = ALL_DATA.filter(d =>
                 (params.includeOos === 'true' || d.quantity > 0) &&
-                (!params.search || !params.search.length || d.description.toLowerCase().includes(params.search.toLowerCase()))
+                (!params.search || !params.search.length || d.model.toLowerCase().includes(params.search.toLowerCase()))
             );
 
-            // 3. Facet Counts
+            const getCounts = (field, data) => {
+                const counts = {};
+                data.forEach(d => {
+                    counts[d[field]] = (counts[d[field]] || 0) + 1;
+                });
+                return counts;
+            };
+
             const facets = {};
 
-            // Category Facets (Always Visible)
-            // Filter by Warehouse? usually yes.
-            // Let's just use baseData filtered by Warehouse for Category counts.
+            // Category Facets (Filter by Warehouse only)
             let catData = baseData;
             if (params.warehouse && params.warehouse.length) catData = catData.filter(d => params.warehouse.includes(d.warehouse));
+            const catCounts = getCounts('category', catData);
+            facets.category = CATEGORIES.map(c => ({ label: c, count: catCounts[c] || 0 }));
 
-            facets.category = CATEGORIES.map(c => ({
-                label: c,
-                count: catData.filter(d => d.category === c).length
-            }));
-
-            // Warehouse Facets (Always Visible)
-            // Filter by Category? usually yes.
+            // Warehouse Facets (Filter by Category)
             let whData = baseData;
             if (params.category && params.category.length) whData = whData.filter(d => params.category.includes(d.category));
+            const whCounts = getCounts('warehouse', whData);
+            facets.warehouse = WAREHOUSES.map(w => ({ label: w, count: whCounts[w] || 0 }));
 
-            facets.warehouse = WAREHOUSES.map(w => ({
-                label: w,
-                count: whData.filter(d => d.warehouse === w).length
-            }));
-
-            // Grade Facets (Always Visible)
-            // Filter by Category + Warehouse
-            let gradeData = whData; // already filtered by cat
-            // if (params.warehouse ... ) // whData is base + category. Need base + category + warehouse
+            // Grade Facets (Filter by Cat + Wh)
+            let gradeData = whData;
             if (params.warehouse && params.warehouse.length) gradeData = gradeData.filter(d => params.warehouse.includes(d.warehouse));
+            const gradeCounts = getCounts('grade', gradeData);
+            facets.grade = GRADES.map(g => ({ label: g, count: gradeCounts[g] || 0 }));
 
-            facets.grade = GRADES.map(g => ({
-                label: g,
-                count: gradeData.filter(d => d.grade === g).length
-            }));
-
-            // Manufacturer Facets (Dependent on Category = Phone)
-            // Only show if params.category contains 'Phones' (or we just show it if data exists in the current filtered set?)
-            // UAT behavior: Hierarchy. 
-            // If Category has 'Phones', show Manufacturers.
+            // Manufacturer (Filter by Cat + Wh + Grade)
             if (params.category && params.category.includes('Phones')) {
-                // Data for counts: Filtered by Category(Phones) + Warehouse + Grade. 
-                // Ignore current Manufacturer selection so we see peers.
-                let mfrData = baseData.filter(d => params.category.includes(d.category)); // Keep only selected cats (which includes Phones)
-                if (params.warehouse && params.warehouse.length) mfrData = mfrData.filter(d => params.warehouse.includes(d.warehouse));
+                let mfrData = gradeData;
                 if (params.grade && params.grade.length) mfrData = mfrData.filter(d => params.grade.includes(d.grade));
-
-                // Get unique manufacturers from this dataset
-                const uniqueMfrs = [...new Set(mfrData.map(d => d.manufacturer))].sort();
-
-                facets.manufacturer = uniqueMfrs.map(m => ({
-                    label: m,
-                    count: mfrData.filter(d => d.manufacturer === m).length
-                }));
+                const mfrCounts = getCounts('manufacturer', mfrData);
+                const uniqueMfrs = Object.keys(mfrCounts).sort();
+                facets.manufacturer = uniqueMfrs.map(m => ({ label: m, count: mfrCounts[m] }));
             }
 
-            // Model Facets (Dependent on Manufacturer)
-            // Only show if Manufacturer matches
-            if (params.manufacturer && params.manufacturer.length > 0) {
-                // Data for counts: Filtered by Cat + Wh + Grade + Mfr.
-                // Ignore current Model selection.
-                let modelData = baseData.filter(d => params.category.includes(d.category));
-                if (params.warehouse && params.warehouse.length) modelData = modelData.filter(d => params.warehouse.includes(d.warehouse));
+            // Model (Filter by Cat + Wh + Grade + Mfr)
+            if (params.manufacturer && params.manufacturer.length) {
+                let modelData = gradeData;
                 if (params.grade && params.grade.length) modelData = modelData.filter(d => params.grade.includes(d.grade));
-                // Filter by Manufacturer
                 modelData = modelData.filter(d => params.manufacturer.includes(d.manufacturer));
-
-                const uniqueModels = [...new Set(modelData.map(d => d.model))].sort();
-                facets.model = uniqueModels.map(m => ({
-                    label: m,
-                    count: modelData.filter(d => d.model === m).length
-                }));
+                const modelCounts = getCounts('rawModel', modelData); // Count by raw model name
+                const uniqueModels = Object.keys(modelCounts).sort();
+                facets.model = uniqueModels.map(m => ({ label: m, count: modelCounts[m] }));
             }
 
             // 4. Pagination
@@ -255,7 +220,6 @@
             const length = parseInt(params.length) || 25;
             const pageData = filtered.slice(start, start + length);
 
-            // 5. Response
             return {
                 draw: parseInt(params.draw) || 1,
                 recordsTotal: ALL_DATA.length,
