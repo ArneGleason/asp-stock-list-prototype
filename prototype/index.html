@@ -235,6 +235,9 @@
                     <span class="material-icons chevron">chevron_right</span>
                     <span class="product-title"><%= model %></span> <!-- already includes capacity -->
                     <span class="variant-badge"><%= variants.length %> Variant<%= variants.length !== 1 ? 's' : '' %></span>
+                    <% if (varyingAttributes) { %>
+                        <span class="variant-sneak-peek text-muted">Mixed: <%= varyingAttributes %></span>
+                    <% } %>
                     <span class="total-qty">Qty: <%= quantity %></span>
                 </div>
                 <div class="header-right">
@@ -249,7 +252,12 @@
                 <% _.each(variants, function(variant) { %>
                     <div class="variant-row">
                         <div class="variant-info">
-                            <span class="variant-color"><%= variant.color %></span>
+                            <span class="variant-color" style="min-width: 120px;">
+                                <%= variant.color %>
+                                <% if (variant.network && variant.network !== 'N/A') { %>
+                                    <span class="text-muted" style="font-size: 0.9em;">(<%= variant.network %>)</span>
+                                <% } %>
+                            </span>
                             <span class="variant-sku"><%= variant.sku %></span>
                             <span class="variant-qty text-muted">Qty: <%= variant.quantity %></span>
                         </div>

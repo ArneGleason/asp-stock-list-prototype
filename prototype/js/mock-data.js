@@ -34,19 +34,32 @@
         const groups = {}; // Key: "Model|Capacity|Grade|Warehouse"
 
         const COLORS = ['Space Gray', 'Silver', 'Gold', 'Midnight Green', 'Blue', 'Red', 'Graphite', 'Sierra Blue'];
+        const NETWORKS = ['Unlocked', 'AT&T', 'Verizon', 'T-Mobile', 'Sprint'];
+
+        // Reduced random pools to create more collisions (grouping)
+        const SELECTED_MODELS = {
+            'Phones': ['iPhone 12', 'iPhone 13', 'Galaxy S21'],
+            'Tablets': ['iPad Air', 'Galaxy Tab S7'],
+            'Wearables': ['Apple Watch S7']
+        };
 
         for (let i = 0; i < 600; i++) {
-            const cat = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
-            const models = MODELS[cat];
-            const modelName = models[Math.floor(Math.random() * models.length)];
-            const capacity = `${[64, 128, 256, 512][Math.floor(Math.random() * 4)]}GB`;
-            const grade = GRADES[Math.floor(Math.random() * GRADES.length)];
-            const wh = WAREHOUSES[Math.floor(Math.random() * WAREHOUSES.length)];
+            // weighted random to favor phones for better demo data
+            const isPhone = Math.random() > 0.3;
+            const cat = isPhone ? 'Phones' : CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+
+            // Use restricted model list if available for better grouping, else random
+            const modelList = SELECTED_MODELS[cat] || MODELS[cat] || MODELS['Accessories'];
+            const modelName = modelList[Math.floor(Math.random() * modelList.length)];
+
+            const capacity = `${[64, 128, 256][Math.floor(Math.random() * 3)]}GB`;
+            const grade = GRADES[Math.floor(Math.random() * 3)]; // Limit to first 3 grades for density
+            const wh = WAREHOUSES[Math.floor(Math.random() * 3)]; // Limit warehouses
             const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+            const network = cat === 'Phones' || cat === 'Tablets' ? NETWORKS[Math.floor(Math.random() * NETWORKS.length)] : 'N/A';
 
             const qty = Math.floor(Math.random() * 50);
-            // Base price based on model roughly (randomized for prototype)
-            let basePrice = 100 + Math.floor(Math.random() * 900);
+            let basePrice = 200 + Math.floor(Math.random() * 800);
 
             // Determine Manufacturer
             let mfr = 'Other';
@@ -78,27 +91,28 @@
             }
 
             const sku = `SKU-${10000 + i}`;
-            const price = basePrice + (Math.floor(Math.random() * 50)); // Slight variance per item/color
+            const price = basePrice + (Math.floor(Math.random() * 50));
 
-            // Add Variant (Color)
-            // Check if this color already exists in group? 
-            // For prototype, let's assume multiple items of same color is fine, but usually variants are unique by color.
-            // Let's aggregate qty if color exists.
+            // Add Variant (Unique by Color + Network)
+            // In reality, variants are unique combinations of attributes not in the group key.
+            // Here: Color + Network.
 
-            let variant = groups[groupKey].variants.find(v => v.color === color);
+            // Check if exact variant exists
+            let variant = groups[groupKey].variants.find(v => v.color === color && v.network === network);
             if (variant) {
                 variant.quantity += qty;
-                // keep price logic simple, maybe average or just keep first
             } else {
                 groups[groupKey].variants.push({
                     sku: sku,
                     color: color,
+                    network: network,
                     quantity: qty,
                     price: price,
-                    itemNumber: sku, // consistency
+                    itemNumber: sku,
                     attributes: {
                         warehouse: wh,
                         color: color,
+                        network: network,
                         grade: grade
                     }
                 });
@@ -110,15 +124,27 @@
             groups[groupKey].maxPrice = Math.max(groups[groupKey].maxPrice, price);
         }
 
-        // Convert groups object to array
+        // Process Groups to determine Varying Attributes
         return Object.values(groups).map(g => {
-            // Fix infinite price if no quantity (though we generated mostly positive qtys)
             if (g.minPrice === Infinity) g.minPrice = 0;
             if (g.maxPrice === -Infinity) g.maxPrice = 0;
-
-            // Format price range string
             g.priceRange = g.minPrice === g.maxPrice ? `$${g.minPrice}` : `$${g.minPrice} - $${g.maxPrice}`;
-            g.price = g.minPrice; // For sorting
+            g.price = g.minPrice;
+
+            // Compute Varying Attributes
+            const attributes = ['color', 'network']; // Candidate attributes to check
+            const variance = [];
+
+            attributes.forEach(attr => {
+                const uniqueValues = new Set(g.variants.map(v => v[attr]).filter(val => val && val !== 'N/A'));
+                if (uniqueValues.size > 1) {
+                    // Capitalize first letter
+                    const label = attr.charAt(0).toUpperCase() + attr.slice(1);
+                    variance.push(label); // e.g. "Color", "Network"
+                }
+            });
+
+            g.varyingAttributes = variance.length > 0 ? variance.join(', ') : null; // "Color, Network" or null
 
             return g;
         });
