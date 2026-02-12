@@ -219,7 +219,8 @@ $(function () {
         el: '#stock-list-container',
         template: _.template($('#product-card-template').html()),
 
-        initialize: function () {
+        initialize: function (options) {
+            this.modal = options.modal; // Reference to the modal view
             this.listenTo(this.collection, 'sync', this.render);
             this.listenTo(this.collection, 'request', this.showLoading);
         },
@@ -284,7 +285,8 @@ $(function () {
 
         events: {
             'click .expand-icon': 'toggleDetails',
-            'click .btn-buy': 'buyItem',
+            'click .btn-buy': 'openBuyModal',
+            'click .btn-offer': 'openOfferModal',
             'click .remove-single-filter': 'removeOneFilter',
             'click #reset-all-btn': 'resetAll'
         },
@@ -295,9 +297,23 @@ $(function () {
             card.find('.details-view').slideToggle();
         },
 
-        buyItem: function (e) {
+        openBuyModal: function (e) {
+            e.preventDefault();
             const sku = $(e.currentTarget).data('sku');
-            alert(`Added SKU ${sku} to cart! (Mock Action)`);
+            const model = this.collection.find(m => m.get('sku') === sku);
+
+            if (model) {
+                this.modal.open(model, 'buy');
+            }
+        },
+
+        openOfferModal: function (e) {
+            e.preventDefault();
+            const sku = $(e.currentTarget).data('sku');
+            const model = this.collection.find(m => m.get('sku') === sku);
+            if (model) {
+                this.modal.open(model, 'offer');
+            }
         },
 
         removeOneFilter: function (e) {
@@ -469,13 +485,107 @@ $(function () {
         }
     });
 
+    const TransactionModalView = Backbone.View.extend({
+        el: '#transaction-modal',
+
+        events: {
+            'click #modal-submit-btn': 'submit',
+            'click #modal-mode-toggle': 'toggleMode',
+            'input #modal-qty': 'updateTotal',
+            'input #modal-offer-price': 'updateTotal'
+        },
+
+        initialize: function () {
+            this.model = null; // Currently selected item
+            this.mode = 'buy'; // 'buy' or 'offer'
+        },
+
+        open: function (model, initialMode = 'buy') {
+            this.model = model;
+            this.mode = initialMode;
+            this.render();
+            this.$el.modal('show');
+        },
+
+        render: function () {
+            const data = this.model.toJSON();
+
+            // Header
+            this.$('#modal-item-title').text(`${data.manufacturer} ${data.model} ${data.grade}`);
+            this.$('#modal-item-sku').text(`Item #: ${data.sku}`);
+
+            // Info
+            this.$('#modal-avail-qty').text(data.quantity);
+            this.$('#modal-list-price').text(`$${data.price.toFixed(2)}`);
+
+            // Inputs
+            this.$('#modal-qty').val(1).attr('max', data.quantity);
+            this.$('#modal-offer-price').val(data.price.toFixed(2));
+
+            this.updateUIState();
+            this.updateTotal();
+        },
+
+        updateUIState: function () {
+            if (this.mode === 'buy') {
+                this.$('#modal-offer-price-group').hide();
+                this.$('#offer-disclaimer').hide();
+                this.$('#modal-mode-toggle').text('Make an Offer');
+                this.$('#modal-submit-btn').text('ADD TO CART');
+                this.$('.modal-title').text('Add to Cart'); // Or generic title? UAT keeps item name
+            } else {
+                this.$('#modal-offer-price-group').show();
+                this.$('#offer-disclaimer').show();
+                this.$('#modal-mode-toggle').text('Buy Now'); // Switch back
+                this.$('#modal-submit-btn').text('SUBMIT OFFER'); // UAT says "ADD TO CART" but this is clearer for prototype? User said "Add to Cart" in observation. Let's stick to UAT "ADD TO CART" but maybe clarify in alert.
+                this.$('#modal-submit-btn').text('ADD TO CART');
+            }
+        },
+
+        toggleMode: function (e) {
+            e.preventDefault();
+            this.mode = (this.mode === 'buy') ? 'offer' : 'buy';
+            this.updateUIState();
+            this.updateTotal();
+        },
+
+        updateTotal: function () {
+            const qty = parseInt(this.$('#modal-qty').val()) || 0;
+            let price = this.model.get('price');
+
+            if (this.mode === 'offer') {
+                price = parseFloat(this.$('#modal-offer-price').val()) || 0;
+            }
+
+            const total = qty * price;
+            this.$('#modal-total').text(`$${total.toFixed(2)}`);
+        },
+
+        submit: function () {
+            const qty = this.$('#modal-qty').val();
+            const action = this.mode === 'buy' ? 'Purchased' : 'Offered';
+            const price = this.mode === 'offer' ? this.$('#modal-offer-price').val() : this.model.get('price');
+
+            alert(`Mock Action: ${action} ${qty} unit(s) of ${this.model.get('model')} at $${price}. Added to cart.`);
+            this.$el.modal('hide');
+        }
+    });
+
     // --- Init ---
     const stockCollection = new StockCollection();
 
-    new StockListView({ collection: stockCollection });
+    // Shared modal instance
+    const transactionModal = new TransactionModalView();
+
+    // Pass modal to StockListView so it can trigger it
+    new StockListView({
+        collection: stockCollection,
+        modal: transactionModal
+    });
+
     new PaginationView({ collection: stockCollection });
     new SidebarView({ collection: stockCollection });
-    new ActiveFiltersView({ collection: stockCollection }); // Added ActiveFiltersView
+    new ActiveFiltersView({ collection: stockCollection });
     new ExperimentView();
 
     // Initial Fetch

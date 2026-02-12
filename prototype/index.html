@@ -159,35 +159,75 @@
         </div>
     </script>
 
-    <!-- Product Card Template -->
-    <script type="text/template" id="product-card-template">
-        <fieldset class="product-card">
-            <div class="group-container">
-                <div class="group-header-container">
-                    <div class="group-header-left">
-                        <p><%= description %></p>
+    <!-- Transaction Modal (Buy / Offer) -->
+    <div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="modal-item-title">Item Title</h4>
+                    <small class="text-muted" id="modal-item-sku">Item #</small>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Available:</strong> <span id="modal-avail-qty">0</span></p>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <p><strong>List Price:</strong> <span id="modal-list-price">$0.00</span></p>
+                        </div>
                     </div>
-                    <div class="group-header-right grade">
-                        <%= grade %>
+
+                    <hr>
+
+                    <form class="form-horizontal">
+                        <div class="form-group">
+                            <label for="modal-qty" class="col-sm-3 control-label">Quantity</label>
+                            <div class="col-sm-4">
+                                <input type="number" class="form-control" id="modal-qty" value="1" min="1">
+                            </div>
+                        </div>
+
+                        <!-- Offer Price (Hidden in Buy Mode) -->
+                        <div class="form-group" id="modal-offer-price-group" style="display:none;">
+                            <label for="modal-offer-price" class="col-sm-3 control-label">Your Offer</label>
+                            <div class="col-sm-4">
+                                <div class="input-group">
+                                    <span class="input-group-addon">$</span>
+                                    <input type="number" class="form-control" id="modal-offer-price" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Total (Only relevant for Buy, or calc for offer) -->
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">Total</label>
+                            <div class="col-sm-9">
+                                <p class="form-control-static" id="modal-total"
+                                    style="font-weight: bold; font-size: 1.2em;">$0.00</p>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div id="offer-disclaimer" class="alert alert-warning"
+                        style="display:none; margin-top: 10px; font-size: 0.9em;">
+                        <strong>Note:</strong> Offers are cleared every day starting 11:00AM Central Time (CT).
                     </div>
                 </div>
-                <div class="group-content-container">
-                    <div class="aggregated-number-container">
-                        <div class="aggregated-stat">
-                            <label>Items</label>
-                            <span><%= items.length %></span>
-                        </div>
-                        <div class="aggregated-stat">
-                            <label>Qty</label>
-                            <span><%= quantity %></span>
-                        </div>
-                        <div class="aggregated-stat">
-                            <label>Price</label>
-                            <span>$<%= price %>+</span>
-                        </div>
+                <div class="modal-footer">
+                    <div class="pull-left">
+                        <a href="#" id="modal-mode-toggle">Make an Offer</a>
                     </div>
-                    <div class="group-content-footer">
-                        <a class="expand-icon" data-id="<%= id %>">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="modal-submit-btn">ADD TO CART</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Card Template -->
+    <script type="text/template" id="product-card-template">
                             <span class="material-icons">expand_more</span>
                         </a>
                     </div>
