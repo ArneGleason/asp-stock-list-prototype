@@ -73,8 +73,8 @@
             <div class="col-md-3 sidebar">
                 <h3>Filters</h3>
 
-                <!-- Experiment: Instant Search -->
-                <div class="filter-group" id="search-container" style="display:none;">
+                <!-- Search Box -->
+                <div class="filter-group search-box-container">
                     <div class="form-group has-feedback">
                         <input type="text" class="form-control" id="search-input"
                             placeholder="Search Model (e.g. iPhone)...">
@@ -109,6 +109,9 @@
                     </div>
                 </div>
 
+                <!-- Active Filters Chips -->
+                <div id="active-filters-container" style="margin-bottom: 15px;"></div>
+
                 <div id="stock-list-container">
                     <!-- Product Cards injected here -->
                     <div class="text-center" style="padding: 50px;">
@@ -129,9 +132,6 @@
     <!-- Experiment Controls -->
     <div id="experiment-panel">
         <h4>PROTOTYPE LAB</h4>
-        <div class="checkbox">
-            <label><input type="checkbox" id="toggle-search"> 🧪 Instant Search</label>
-        </div>
         <div class="checkbox">
             <label><input type="checkbox" id="toggle-density"> 🧪 Compact Mode</label>
         </div>
