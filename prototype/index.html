@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock List - Prototype | Hyla UAT Clone</title>
+
+    <!-- Bootstrap 3.4.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- Header / Navigation (Simplified) -->
+    <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                    aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">HYLA UAT CLONE</a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="#">STOCK LIST</a></li>
+                    <li><a href="#">AUCTION</a></li>
+                    <li><a href="#">PO</a></li>
+                    <li><a href="#">GRADING SCALE</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#">HELP</a></li>
+                    <li><a href="#">ACCOUNT <span class="caret"></span></a></li>
+                    <li><a href="#">LOGOUT</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container main-content-area">
+
+        <!-- Alerts (Mocked) -->
+        <div class="alert alert-warning" role="alert">
+            <span class="glyphicon glyphicon-bullhorn" aria-hidden="true"></span>
+            1 Auctions open for bidding today. <a href="#" class="alert-link">SEE AUCTIONS</a>
+        </div>
+
+        <!-- Toolbar (Mocked) -->
+        <div class="row" style="margin-bottom: 20px;">
+            <div class="col-xs-12 text-right">
+                <button class="btn btn-link"><span class="glyphicon glyphicon-import"></span> IMPORT</button>
+                <button class="btn btn-link"><span class="glyphicon glyphicon-export"></span> EXPORT</button>
+                <button class="btn btn-link"><span class="glyphicon glyphicon-shopping-cart"></span> CART <span
+                        class="badge" style="background-color: #f0ad4e;">2</span></button>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Sidebar Filters -->
+            <div class="col-md-3 sidebar">
+                <h3>Filters</h3>
+
+                <!-- Experiment: Instant Search -->
+                <div class="filter-group" id="search-container" style="display:none;">
+                    <div class="form-group has-feedback">
+                        <input type="text" class="form-control" id="search-input"
+                            placeholder="Search Model (e.g. iPhone)...">
+                        <span id="search-clear" class="glyphicon glyphicon-remove form-control-feedback text-muted"
+                            style="cursor: pointer; pointer-events: auto; display: none;"></span>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" id="filter-oos"> Include Out of Stock
+                            <span class="glyphicon glyphicon-info-sign text-info" title="Show 0 qty items"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="sidebar-filters-container">
+                    <!-- Filters injected here by SidebarView -->
+                </div>
+            </div>
+
+            <!-- Stock List Results -->
+            <div class="col-md-9 main-content">
+                <div class="row" style="margin-bottom: 10px;">
+                    <div class="col-xs-6">
+                        <span id="total-counts" class="text-muted">Loading...</span>
+                    </div>
+                    <!-- Pagination (Top) -->
+                    <div class="col-xs-6 text-right">
+                        <!-- Simplified -->
+                    </div>
+                </div>
+
+                <div id="stock-list-container">
+                    <!-- Product Cards injected here -->
+                    <div class="text-center" style="padding: 50px;">
+                        <img src="https://i.gifer.com/ZZ5H.gif" alt="Loading..." style="width: 50px;">
+                    </div>
+                </div>
+
+                <!-- Pagination (Bottom) -->
+                <nav aria-label="Page navigation" class="text-center">
+                    <ul class="pagination" id="pagination-controls">
+                        <!-- Pagination Links -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Experiment Controls -->
+    <div id="experiment-panel">
+        <h4>PROTOTYPE LAB</h4>
+        <div class="checkbox">
+            <label><input type="checkbox" id="toggle-search"> 🧪 Instant Search</label>
+        </div>
+        <div class="checkbox">
+            <label><input type="checkbox" id="toggle-density"> 🧪 Compact Mode</label>
+        </div>
+        <div class="checkbox">
+            <label><input type="checkbox" id="toggle-sticky"> 🧪 Sticky Sidebar</label>
+        </div>
+    </div>
+
+
+    <!-- Templates (Underscore.js) -->
+
+    <!-- Filters Template -->
+    <script type="text/template" id="filter-group-template">
+        <div class="filter-group">
+            <h4><%= title %></h4>
+            <% _.each(items, function(item) { %>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" class="filter-checkbox" data-type="<%= type %>" value="<%= item.label %>"> 
+                        <%= item.label %>
+                        <span class="filter-count text-muted">(<%= item.count %>)</span>
+                    </label>
+                </div>
+            <% }); %>
+        </div>
+    </script>
+
+    <!-- Product Card Template -->
+    <script type="text/template" id="product-card-template">
+        <fieldset class="product-card">
+            <div class="group-container">
+                <div class="group-header-container">
+                    <div class="group-header-left">
+                        <p><%= description %></p>
+                    </div>
+                    <div class="group-header-right grade">
+                        <%= grade %>
+                    </div>
+                </div>
+                <div class="group-content-container">
+                    <div class="aggregated-number-container">
+                        <div class="aggregated-stat">
+                            <label>Items</label>
+                            <span><%= items.length %></span>
+                        </div>
+                        <div class="aggregated-stat">
+                            <label>Qty</label>
+                            <span><%= quantity %></span>
+                        </div>
+                        <div class="aggregated-stat">
+                            <label>Price</label>
+                            <span>$<%= price %>+</span>
+                        </div>
+                    </div>
+                    <div class="group-content-footer">
+                        <a class="expand-icon" data-id="<%= id %>">
+                            <span class="material-icons">expand_more</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <!-- Expanded Details View -->
+            <div class="details-view" id="details-<%= id %>">
+                <% _.each(items, function(item) { %>
+                    <div class="sku-row">
+                        <div class="sku-info">
+                            <strong>SKU:</strong> <%= item.itemNumber %> | 
+                            <strong>Warehouse:</strong> <%= item.attributes.warehouse %> |
+                            <strong>Color:</strong> <%= item.attributes.color || 'N/A' %>
+                        </div>
+                        <div class="sku-actions">
+                            <span class="price-tag" style="font-weight: bold; margin-right: 10px;">$<%= item.price %></span>
+                            <button class="btn btn-default btn-sm">OFFER</button>
+                            <button class="btn btn-primary btn-sm btn-buy" data-sku="<%= item.itemNumber %>">BUY</button>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </fieldset>
+    </script>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.1/underscore-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.0/backbone-min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+    <!-- App Logic -->
+    <script src="js/mock-data.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+
+</html>

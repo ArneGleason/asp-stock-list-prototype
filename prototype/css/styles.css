@@ -1,0 +1,247 @@
+/* Fonts */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #FFFFFF;
+    color: #3A494D;
+    font-size: 17px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+    font-family: 'Open Sans', sans-serif;
+    color: #003366;
+}
+
+/* Layout */
+.main-content {
+    margin-top: 20px;
+}
+
+.sidebar {
+    background-color: #f8f8f8;
+    /* Approximation */
+    padding: 15px;
+    border-right: 1px solid #ddd;
+}
+
+/* Product Card - The Fieldset Look */
+fieldset.product-card {
+    border: 1px solid #e0e0e0;
+    padding: 0;
+    margin-bottom: 24px;
+    background: #fff;
+    border-radius: 2px;
+}
+
+.group-container {
+    padding: 15px;
+}
+
+.group-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.group-header-left p {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.group-header-right.grade {
+    background-color: #0F9FFF;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.group-content-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.aggregated-number-container {
+    display: flex;
+    gap: 30px;
+}
+
+.aggregated-stat {
+    text-align: center;
+}
+
+.aggregated-stat label {
+    display: block;
+    font-size: 12px;
+    color: #8BA1A7;
+    margin-bottom: 2px;
+    font-weight: normal;
+}
+
+.aggregated-stat span {
+    font-size: 17px;
+    font-weight: bold;
+}
+
+.expand-icon {
+    cursor: pointer;
+    color: #0070B9;
+}
+
+.expand-icon:hover {
+    color: #005a9e;
+}
+
+/* Detail View (Expanded) */
+.details-view {
+    border-top: 1px solid #eee;
+    background-color: #fcfcfc;
+    padding: 15px;
+    display: none;
+    /* Hidden by default */
+}
+
+.sku-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.sku-info {
+    font-size: 14px;
+}
+
+.sku-actions .btn {
+    margin-left: 5px;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: #0070B9;
+    border-color: #0070B9;
+    border-radius: 3px;
+    padding: 6px 20px;
+    font-size: 14px;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: #005a9e;
+    border-color: #005a9e;
+}
+
+/* Filter Sidebar */
+.filter-group {
+    margin-bottom: 20px;
+}
+
+.filter-group h4 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+}
+
+.checkbox label {
+    font-size: 14px;
+    color: #3A494D;
+}
+
+.checkbox input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+.filter-count {
+    color: #8BA1A7;
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+/* Utilities */
+.text-danger {
+    color: #F50000;
+}
+
+.text-success {
+    color: #5cb85c;
+}
+
+/* --- EXPERIMENTS --- */
+
+/* 1. Compact Density */
+.compact-mode fieldset.product-card {
+    margin-bottom: 10px;
+}
+
+.compact-mode .group-container {
+    padding: 8px 15px;
+}
+
+.compact-mode .group-header-container {
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+}
+
+.compact-mode .group-header-left p {
+    font-size: 15px;
+}
+
+.compact-mode .aggregated-stat span {
+    font-size: 15px;
+}
+
+/* 2. Sticky Sidebar */
+.sticky-sidebar-enabled .sidebar {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 20px;
+    height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+/* Experiment Panel */
+#experiment-panel {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: #333;
+    color: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    z-index: 9999;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    width: 250px;
+    opacity: 0.9;
+}
+
+#experiment-panel h4 {
+    color: #fff;
+    margin-top: 0;
+    border-bottom: 1px solid #555;
+    padding-bottom: 5px;
+}
+
+#experiment-panel label {
+    font-weight: normal;
+    display: block;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
