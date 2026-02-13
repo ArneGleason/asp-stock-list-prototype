@@ -553,35 +553,146 @@ h6,
     text-align: center;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 600px) {
-    .results-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .results-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .pagination-input-group {
-        width: 100%;
-        justify-content: space-between;
-    }
+/* --- Toolbar & Search --- */
+.stock-list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
-/* --- Filter Panel Modernization --- */
-
-.sidebar-header {
-    margin-bottom: 20px;
+#filter-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 46px;
+    /* Match input-lg height approx */
+    padding: 0 15px;
+    border-radius: 4px;
+    font-weight: 600;
+    flex-shrink: 0;
+    border: 1px solid #ccc;
+    background-color: #f8f9fa;
+    color: #333;
 }
 
-.search-group {
+#filter-toggle-btn:hover,
+#filter-toggle-btn.active {
+    background-color: #e2e6ea;
+    border-color: #adb5bd;
+}
+
+#filter-toggle-btn.active {
+    background-color: #dbeafe;
+    /* Light blue tint for active */
+    border-color: #bfdbfe;
+    color: #0056b3;
+}
+
+#filter-toggle-btn .material-icons {
+    font-size: 20px;
+}
+
+#filter-toggle-btn .badge.filter-count {
+    background-color: #007bff;
+    margin-left: 4px;
+}
+
+.search-input-wrapper {
     position: relative;
-    width: 100%;
+    flex-grow: 1;
 }
+
+#search-input {
+    height: 46px;
+    font-size: 16px;
+    border-radius: 4px;
+}
+
+.search-clear-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #999;
+}
+
+/* --- Results Meta Bar (Pagination) --- */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: nowrap;
+    /* Prevent wrapping */
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    height: 50px;
+}
+
+.results-info {
+    font-size: 0.95em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    /* Allow shrinking */
+    padding-right: 10px;
+}
+
+.results-controls {
+    flex-shrink: 0;
+}
+
+/* Compact Pagination */
+.pagination-input-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.pagination-input-group .btn {
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    /* Lighter style */
+    background: transparent;
+    color: #555;
+    border-radius: 4px;
+}
+
+.pagination-input-group .btn:hover:not(:disabled) {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.pagination-input-group .btn:disabled {
+    opacity: 0.3;
+}
+
+.page-info {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #555;
+    padding: 0 5px;
+    white-space: nowrap;
+}
+
+/* Responsive Text for Pagination */
+@media (max-width: 767px) {
+    /* Hide the "Page X of Y" verbose text only? No, we change content via JS or CSS content substitution */
+    /* JS is easier for "1 / N" vs "Page 1 of N", but let's see if we can do it via CSS classes helper in JS */
+}
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 600px) {
+    #filter-toggle-btn .btn-label {
+        /* Optional: Hide label on very small screens if needed, but requirements say keep it left anchored. 
+           Requirements: "If space is tight, allow ... to collapse to icon-only"
+           Let's keep text for now unless < 360px */
+        display: inline;
+    }
+}
+
 
 /* Mobile Responsiveness for Drawer */
 @media (max-width: 992px) {

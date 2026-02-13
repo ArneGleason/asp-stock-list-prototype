@@ -68,19 +68,23 @@
             </div>
         </div>
 
-        <!-- Unified Search Header (Full Width) -->
+        <!-- Unified Search Header (Toolbar) -->
         <div class="row search-header-row">
             <div class="col-xs-12">
-                <div class="input-group search-group">
-                    <input type="text" class="form-control input-lg" id="search-input" placeholder="Search Model...">
-                    <span id="search-clear" class="material-icons search-clear-icon" style="display: none;">close</span>
-                    <span class="input-group-btn">
-                        <button class="btn btn-default btn-lg" type="button" id="filter-toggle-btn">
-                            <span class="material-icons">tune</span>
-                        </button>
-                    </span>
+                <div class="stock-list-toolbar">
+                    <button class="btn btn-default" type="button" id="filter-toggle-btn" aria-expanded="false"
+                        aria-controls="filter-drawer">
+                        <span class="material-icons">filter_list</span>
+                        <span class="btn-label">Filters</span>
+                        <span class="badge filter-count" style="display: none;">0</span>
+                    </button>
+                    <div class="search-input-wrapper">
+                        <input type="text" class="form-control" id="search-input" placeholder="Search Model...">
+                        <span id="search-clear" class="material-icons search-clear-icon"
+                            style="display: none;">close</span>
+                    </div>
                 </div>
-                <!-- Active Filters Row (Moved here) -->
+                <!-- Active Filters Row -->
                 <div id="active-filters-container" class="active-filters-row"></div>
             </div>
         </div>

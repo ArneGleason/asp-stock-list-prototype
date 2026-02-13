@@ -57,8 +57,6 @@ $(function () {
                     search: this.state.filters.search
                 };
 
-                console.log('Fetching with params:', params);
-
                 // Simulate network latency
                 setTimeout(() => {
                     const response = window.MockApi.getGroups(params);
@@ -86,16 +84,6 @@ $(function () {
                 }
                 this.state.filters[type] = list;
 
-                // Dependencies: Clear child filters if parent unique selection changes
-                // If I uncheck "Phones", I should probably clear Manufacturer and Model.
-                // But what if I have "tablets" checked too?
-                // For this prototype, strict clear on uncheck of parents?
-                // Let's keep it simple: If I uncheck all categories that support manufacturer (Phones), clear manufacturer.
-                // But wait, the API logic handles hiding the facets. 
-                // However, the selected values in `state.filters.manufacturer` will remain.
-                // It's cleaner to clear them if they are no longer valid.
-                // For now, let's leave them. If the UI hides them, user can't uncheck them, which is a bug.
-                // So yes, we should clear them.
                 if (type === 'category' && !this.state.filters.category.includes('Phones')) {
                     this.state.filters.manufacturer = [];
                     this.state.filters.model = [];
@@ -350,10 +338,11 @@ $(function () {
     });
 
     const PaginationView = Backbone.View.extend({
-        el: '.main-content', // Delegate events to container to catch both top and bottom controls
+        el: '.main-results-area',
 
         initialize: function () {
             this.listenTo(this.collection, 'sync', this.render);
+            $(window).on('resize', _.debounce(this.render.bind(this), 200)); // Re-render on resize for text change
         },
 
         render: function () {
@@ -363,25 +352,28 @@ $(function () {
             const page = Math.floor(start / len) + 1;
             const totalPages = Math.ceil(total / len);
 
+            const isMobile = window.innerWidth < 768;
+            const pageText = isMobile ? `${page} / ${totalPages}` : `Page ${page} of ${totalPages}`;
+
             // Modern flexible pagination
             let html = `
                 <div class="pagination-input-group">
-                    <button class="btn btn-default btn-sm prev-page" ${start === 0 ? 'disabled' : ''}>
-                        <span class="material-icons" style="font-size: 16px; vertical-align: middle;">chevron_left</span>
+                    <button class="btn btn-default btn-sm prev-page" ${start === 0 ? 'disabled' : ''} aria-label="Previous Page">
+                        <span class="material-icons" style="font-size: 20px; vertical-align: middle;">chevron_left</span>
                     </button>
-                    <span class="page-info">Page ${page} of ${totalPages}</span>
-                    <button class="btn btn-default btn-sm next-page" ${start + len >= total ? 'disabled' : ''}>
-                        <span class="material-icons" style="font-size: 16px; vertical-align: middle;">chevron_right</span>
+                    <span class="page-info">${pageText}</span>
+                    <button class="btn btn-default btn-sm next-page" ${start + len >= total ? 'disabled' : ''} aria-label="Next Page">
+                        <span class="material-icons" style="font-size: 20px; vertical-align: middle;">chevron_right</span>
                     </button>
                 </div>
             `;
 
-            // Render to Top and Bottom Containers (using jQuery directly as they might be inside or outside el depending on structure, but here they are inside .main-content)
             $('#top-pagination').html(html);
+            // We removed bottom pagination in concept, but if it exists, update it too
             $('#pagination-controls').html(html).addClass('pull-right');
 
             // Update counts
-            $('#total-counts').text(`Showing ${Math.min(start + 1, total)} - ${Math.min(start + len, total)} of ${total} results`);
+            $('#total-counts').text(`Showing ${Math.min(start + 1, total)} – ${Math.min(start + len, total)} of ${total} results`);
         },
 
         events: {
@@ -391,41 +383,74 @@ $(function () {
     });
 
     const SidebarView = Backbone.View.extend({
-        el: 'body', // Delegating to body to handle interactions outside the drawer (toggle btn, backdrop)
+        el: 'body',
 
         events: {
             'change #filter-oos': 'toggleOos',
             'change .filter-checkbox': 'toggleFilter',
             'keyup #search-input': 'handleSearch',
             'click #search-clear': 'clearSearch',
-            'click #filter-toggle-btn': 'openDrawer',
+            'click #filter-toggle-btn': 'toggleDrawer', // Changed to toggle
             'click #close-drawer': 'closeDrawer',
             'click #drawer-backdrop': 'closeDrawer',
-            'click .remove-filter': 'removeFilterChip', // Listener for chips
+            'click .remove-filter': 'removeFilterChip',
             'click .filter-section-header': 'toggleSection'
         },
 
         initialize: function () {
             this.listenTo(this.collection, 'sync', this.renderFilters);
-            this.listenTo(this.collection, 'sync', this.renderActiveChips); // Re-render chips on sync
+            this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
+            // Also need to listen if filters change locally before sync? 
+            // Sync happens after fetch, so it's accurate.
+        },
+
+        toggleDrawer: function () {
+            const drawer = $('#filter-drawer');
+            if (drawer.hasClass('open')) {
+                this.closeDrawer();
+            } else {
+                this.openDrawer();
+            }
         },
 
         openDrawer: function () {
             $('#filter-drawer').addClass('open');
-            // Desktop: Push layout handled by CSS width transition
-            // Mobile: Overlay handled by CSS transform
-
+            $('#drawer-backdrop').addClass('open');
+            $('#filter-toggle-btn').addClass('active').attr('aria-expanded', 'true');
             if (window.innerWidth < 992) {
-                $('#drawer-backdrop').addClass('open');
-                $('body').css('overflow', 'hidden'); // Prevent scrolling body on mobile
+                $('body').css('overflow', 'hidden');
             }
         },
 
         closeDrawer: function () {
             $('#filter-drawer').removeClass('open');
             $('#drawer-backdrop').removeClass('open');
-            $('body').css('overflow', ''); // Restore scrolling
+            $('#filter-toggle-btn').removeClass('active').attr('aria-expanded', 'false');
+            $('body').css('overflow', '');
         },
+
+        updateBadge: function () {
+            const filters = this.collection.state.filters;
+            let count = 0;
+
+            // Count array filters
+            ['category', 'warehouse', 'manufacturer', 'model', 'grade'].forEach(type => {
+                if (filters[type]) count += filters[type].length;
+            });
+
+            // Count boolean filters
+            if (filters.includeOos) count++;
+
+            const badge = $('#filter-toggle-btn .filter-count');
+            badge.text(count);
+
+            if (count > 0) {
+                badge.show();
+            } else {
+                badge.hide();
+            }
+        },
+
 
         removeFilterChip: function (e) {
             const type = $(e.currentTarget).data('type');
