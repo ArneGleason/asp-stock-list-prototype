@@ -152,9 +152,9 @@ $(function () {
             // Helper to create chips
             const addChip = (label, type, value) => {
                 html += `
-                    <span class="label label-primary" style="display: inline-block; padding: 8px; margin-right: 5px; margin-bottom: 5px; font-size: 14px;">
+                    <span class="label" style="display: inline-flex; align-items: center; margin-right: 5px; margin-bottom: 5px;">
                         ${label}: ${value} 
-                        <span class="glyphicon glyphicon-remove remove-filter" data-type="${type}" data-value="${value}" style="cursor: pointer; margin-left: 5px;"></span>
+                        <span class="material-icons remove-filter" data-type="${type}" data-value="${value}">close</span>
                     </span>
                 `;
                 hasFilters = true;
@@ -350,7 +350,7 @@ $(function () {
     });
 
     const PaginationView = Backbone.View.extend({
-        el: '#pagination-controls',
+        el: '.main-content', // Delegate events to container to catch both top and bottom controls
 
         initialize: function () {
             this.listenTo(this.collection, 'sync', this.render);
@@ -363,21 +363,25 @@ $(function () {
             const page = Math.floor(start / len) + 1;
             const totalPages = Math.ceil(total / len);
 
-            let html = '';
+            // Modern flexible pagination
+            let html = `
+                <div class="pagination-input-group">
+                    <button class="btn btn-default btn-sm prev-page" ${start === 0 ? 'disabled' : ''}>
+                        <span class="material-icons" style="font-size: 16px; vertical-align: middle;">chevron_left</span>
+                    </button>
+                    <span class="page-info">Page ${page} of ${totalPages}</span>
+                    <button class="btn btn-default btn-sm next-page" ${start + len >= total ? 'disabled' : ''}>
+                        <span class="material-icons" style="font-size: 16px; vertical-align: middle;">chevron_right</span>
+                    </button>
+                </div>
+            `;
 
-            // Prev
-            html += `<li class="${start === 0 ? 'disabled' : ''}"><a href="#" class="prev-page" aria-label="Previous"><span aria-hidden="true">&laquo;</span></a></li>`;
+            // Render to Top and Bottom Containers (using jQuery directly as they might be inside or outside el depending on structure, but here they are inside .main-content)
+            $('#top-pagination').html(html);
+            $('#pagination-controls').html(html).addClass('pull-right');
 
-            // Simple Page Indicator
-            html += `<li><span>Page ${page} of ${totalPages}</span></li>`;
-
-            // Next
-            html += `<li class="${start + len >= total ? 'disabled' : ''}"><a href="#" class="next-page" aria-label="Next"><span aria-hidden="true">&raquo;</span></a></li>`;
-
-            this.$el.html(html);
-
-            // Update header counts too
-            $('#total-counts').text(`Showing ${start + 1} to ${Math.min(start + len, total)} of ${total} entries`);
+            // Update counts
+            $('#total-counts').text(`Showing ${Math.min(start + 1, total)} - ${Math.min(start + len, total)} of ${total} results`);
         },
 
         events: {
@@ -387,22 +391,67 @@ $(function () {
     });
 
     const SidebarView = Backbone.View.extend({
-        el: '.sidebar',
+        el: 'body', // Delegating to body to handle interactions outside the drawer (toggle btn, backdrop)
 
         events: {
             'change #filter-oos': 'toggleOos',
             'change .filter-checkbox': 'toggleFilter',
             'keyup #search-input': 'handleSearch',
-            'click #search-clear': 'clearSearch'
+            'click #search-clear': 'clearSearch',
+            'click #filter-toggle-btn': 'openDrawer',
+            'click #close-drawer': 'closeDrawer',
+            'click #drawer-backdrop': 'closeDrawer',
+            'click .remove-filter': 'removeFilterChip', // Listener for chips
+            'click .filter-section-header': 'toggleSection'
         },
 
         initialize: function () {
             this.listenTo(this.collection, 'sync', this.renderFilters);
+            this.listenTo(this.collection, 'sync', this.renderActiveChips); // Re-render chips on sync
+        },
+
+        openDrawer: function () {
+            $('#filter-drawer').addClass('open');
+            // Desktop: Push layout handled by CSS width transition
+            // Mobile: Overlay handled by CSS transform
+
+            if (window.innerWidth < 992) {
+                $('#drawer-backdrop').addClass('open');
+                $('body').css('overflow', 'hidden'); // Prevent scrolling body on mobile
+            }
+        },
+
+        closeDrawer: function () {
+            $('#filter-drawer').removeClass('open');
+            $('#drawer-backdrop').removeClass('open');
+            $('body').css('overflow', ''); // Restore scrolling
+        },
+
+        removeFilterChip: function (e) {
+            const type = $(e.currentTarget).data('type');
+            const value = $(e.currentTarget).data('value');
+            // If type is special (search), handle differently? Usually just filters
+            if (type && value) {
+                this.collection.updateFilter(type, value, false); // Turn off
+            }
+        },
+
+        renderActiveChips: function () {
+            // ... (Existing chip logic, moved here or kept in ActiveFiltersView? 
+            // Actually, let's keep ActiveFiltersView separate but ensure it renders into #active-filters-container which is now in drawer)
+            // Wait, ActiveFiltersView `el` was `#active-filters-container`.
+            // If we move `#active-filters-container` into the drawer, ActiveFiltersView will find it IF it exists in DOM.
         },
 
         toggleOos: function (e) {
             const isChecked = $(e.currentTarget).is(':checked');
             this.collection.updateFilter('oos', null, isChecked);
+        },
+
+        toggleSection: function (e) {
+            const header = $(e.currentTarget);
+            const section = header.closest('.filter-section');
+            section.toggleClass('expanded');
         },
 
         toggleFilter: function (e) {
@@ -444,19 +493,38 @@ $(function () {
             const renderGroup = (title, type, items) => {
                 if (!items || items.length === 0) return;
 
-                let html = `<div class="filter-section"><h4>${title}</h4>`;
+                // Check if any item in this group is checked to auto-expand
+                const isAnyChecked = items.some(item =>
+                    this.collection.state.filters[type] && this.collection.state.filters[type].includes(item.label)
+                );
+
+                // Default expand Category and Warehouse, others collapsed unless active
+                const shouldExpand = isAnyChecked || ['category', 'warehouse'].includes(type);
+                const expandClass = shouldExpand ? 'expanded' : '';
+
+                let html = `
+                    <div class="filter-section ${expandClass}">
+                        <div class="filter-section-header">
+                            <h4>${title}</h4>
+                            <span class="material-icons chevron">expand_more</span>
+                        </div>
+                        <div class="filter-section-body">
+                `;
+
                 items.forEach(item => {
                     const isChecked = this.collection.state.filters[type] && this.collection.state.filters[type].includes(item.label) ? 'checked' : '';
                     html += `
-                        <div class="checkbox">
+                        <div class="checkbox-switch">
                             <label>
-                                <input type="checkbox" class="filter-checkbox" data-type="${type}" value="${item.label}" ${isChecked}> 
-                                ${item.label} <span class="text-muted">(${item.count})</span>
+                                <input type="checkbox" class="filter-checkbox" data-type="${type}" value="${item.label}" ${isChecked}>
+                                <span class="slider round"></span>
+                                <span class="label-text">${item.label}</span>
+                                <span class="badge filter-badge pull-right">${item.count}</span>
                             </label>
                         </div>
                     `;
                 });
-                html += `</div>`;
+                html += `</div></div>`;
                 container.append(html);
             };
 

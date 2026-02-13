@@ -59,7 +59,7 @@
         </div>
 
         <!-- Toolbar (Mocked) -->
-        <div class="row" style="margin-bottom: 20px;">
+        <div class="row" style="margin-bottom: 10px;">
             <div class="col-xs-12 text-right">
                 <button class="btn btn-link"><span class="glyphicon glyphicon-import"></span> IMPORT</button>
                 <button class="btn btn-link"><span class="glyphicon glyphicon-export"></span> EXPORT</button>
@@ -68,49 +68,63 @@
             </div>
         </div>
 
-        <div class="row">
-            <!-- Sidebar Filters -->
-            <div class="col-md-3 sidebar">
-                <h3>Filters</h3>
-
-                <!-- Search Box -->
-                <div class="filter-group search-box-container">
-                    <div class="form-group has-feedback">
-                        <input type="text" class="form-control" id="search-input"
-                            placeholder="Search Model (e.g. iPhone)...">
-                        <span id="search-clear" class="glyphicon glyphicon-remove form-control-feedback text-muted"
-                            style="cursor: pointer; pointer-events: auto; display: none;"></span>
-                    </div>
+        <!-- Unified Search Header (Full Width) -->
+        <div class="row search-header-row">
+            <div class="col-xs-12">
+                <div class="input-group search-group">
+                    <input type="text" class="form-control input-lg" id="search-input" placeholder="Search Model...">
+                    <span id="search-clear" class="material-icons search-clear-icon" style="display: none;">close</span>
+                    <span class="input-group-btn">
+                        <button class="btn btn-default btn-lg" type="button" id="filter-toggle-btn">
+                            <span class="material-icons">tune</span>
+                        </button>
+                    </span>
                 </div>
-
-                <div class="filter-group">
-                    <div class="checkbox">
-                        <label>
-                            <input type="checkbox" id="filter-oos"> Include Out of Stock
-                            <span class="glyphicon glyphicon-info-sign text-info" title="Show 0 qty items"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div id="sidebar-filters-container">
-                    <!-- Filters injected here by SidebarView -->
-                </div>
+                <!-- Active Filters Row (Moved here) -->
+                <div id="active-filters-container" class="active-filters-row"></div>
             </div>
+        </div>
 
-            <!-- Stock List Results -->
-            <div class="col-md-9 main-content">
-                <div class="row" style="margin-bottom: 10px;">
-                    <div class="col-xs-6">
+        <div class="drawer-layout-container">
+            <!-- Sidebar Drawer -->
+            <aside id="filter-drawer" class="sidebar-drawer">
+                <div class="drawer-header">
+                    <h4 class="drawer-title">Filters</h4>
+                    <button type="button" class="close-drawer-btn" id="close-drawer" aria-label="Close">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+                <div class="drawer-content">
+                    <div class="filter-group-toggle">
+                        <div class="checkbox-switch">
+                            <label>
+                                <input type="checkbox" id="filter-oos">
+                                <span class="slider round"></span>
+                                <span class="label-text">Include Out of Stock</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="sidebar-filters-container">
+                        <!-- Filters injected here by SidebarView -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Drawer Backdrop (Mobile only) -->
+            <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+            <!-- Main Results Area -->
+            <main class="main-results-area">
+                <!-- Stock List Results -->
+                <div class="results-header">
+                    <div class="results-info">
                         <span id="total-counts" class="text-muted">Loading...</span>
                     </div>
-                    <!-- Pagination (Top) -->
-                    <div class="col-xs-6 text-right">
-                        <!-- Simplified -->
+                    <div class="results-controls">
+                        <div id="top-pagination"></div>
                     </div>
                 </div>
-
-                <!-- Active Filters Chips -->
-                <div id="active-filters-container" style="margin-bottom: 15px;"></div>
 
                 <div id="stock-list-container">
                     <!-- Product Cards injected here -->
@@ -125,20 +139,11 @@
                         <!-- Pagination Links -->
                     </ul>
                 </nav>
-            </div>
+            </main>
         </div>
     </div>
 
     <!-- Experiment Controls -->
-    <div id="experiment-panel">
-        <h4>PROTOTYPE LAB</h4>
-        <div class="checkbox">
-            <label><input type="checkbox" id="toggle-density"> 🧪 Compact Mode</label>
-        </div>
-        <div class="checkbox">
-            <label><input type="checkbox" id="toggle-sticky"> 🧪 Sticky Sidebar</label>
-        </div>
-    </div>
 
 
     <!-- Templates (Underscore.js) -->

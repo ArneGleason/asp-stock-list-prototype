@@ -27,11 +27,158 @@ h6,
     margin-top: 20px;
 }
 
-.sidebar {
-    background-color: #f8f8f8;
-    /* Approximation */
-    padding: 15px;
+/* Drawer Layout */
+.drawer-layout-container {
+    display: flex;
+    overflow: hidden;
+    /* Prevent horizontal scroll during transition */
+    position: relative;
+    min-height: 600px;
+}
+
+/* Sidebar Drawer - Desktop */
+.sidebar-drawer {
+    width: 0;
+    flex-shrink: 0;
+    transition: width 0.3s ease;
+    background-color: #fff;
+    border-right: none;
+    /* Hide border when closed */
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Hide content when width is 0 */
+    height: auto;
+    /* Allow it to grow with content or set fixed height */
+    position: relative;
+    z-index: 90;
+}
+
+.sidebar-drawer.open {
+    width: 300px;
     border-right: 1px solid #ddd;
+    /* or 25% */
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.drawer-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-drawer-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+}
+
+.drawer-content {
+    padding: 15px;
+}
+
+/* Backdrop - Mobile Only by default hidden */
+.drawer-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+/* Main Results Area */
+.main-results-area {
+    flex-grow: 1;
+    padding-left: 20px;
+    padding-right: 0;
+    /* Bootstrap container has padding */
+    transition: padding 0.3s ease;
+    min-width: 0;
+    /* Fix flex child overflow */
+}
+
+/* Active Filters Row */
+#active-filters-container {
+    margin-top: 10px;
+    min-height: 10px;
+}
+
+#active-filters-container .label {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 4px 4px 0;
+    font-weight: 500;
+    font-size: 13px;
+    background-color: #e3f2fd;
+    color: #0d47a1;
+    border: 1px solid #bbdefb;
+    border-radius: 16px;
+    padding: 4px 10px;
+}
+
+#active-filters-container .label .remove-filter {
+    color: #0d47a1;
+    opacity: 0.6;
+    margin-left: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#active-filters-container .label .remove-filter:hover {
+    opacity: 1;
+}
+
+/* Accordion Filters */
+.filter-section {
+    margin-bottom: 5px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-section-header {
+    padding: 10px 0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.filter-section-header h4 {
+    margin: 0;
+    font-size: 15px;
+    color: #333;
+    font-weight: 600;
+}
+
+.filter-section-header .chevron {
+    font-size: 20px;
+    color: #888;
+}
+
+.filter-section-body {
+    display: none;
+    /* Collapsed by default */
+    padding-bottom: 10px;
+}
+
+.filter-section.expanded .filter-section-body {
+    display: block;
+}
+
+.filter-section.expanded .chevron {
+    transform: rotate(180deg);
+    /* Or 90 depending on icon */
 }
 
 /* Product Card - New Compact Design */
@@ -324,31 +471,263 @@ h6,
     overflow-y: auto;
 }
 
-/* Experiment Panel */
-#experiment-panel {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    background: #333;
-    color: #fff;
-    padding: 15px;
-    border-radius: 5px;
-    z-index: 9999;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    width: 250px;
-    opacity: 0.9;
+
+/* --- Results Header & Pagination --- */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    /* Remove side padding if flush, or keep. Let's keep spacing but remove border */
+    background-color: #fff;
+    /* Removed border */
+    margin-bottom: 0;
 }
 
-#experiment-panel h4 {
-    color: #fff;
-    margin-top: 0;
-    border-bottom: 1px solid #555;
-    padding-bottom: 5px;
+/* Ensure list container connects nicely */
+#stock-list-container {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    /* Restore radius since header is detached/borderless */
+    background: #fff;
 }
 
-#experiment-panel label {
-    font-weight: normal;
-    display: block;
-    margin-bottom: 5px;
+.mobile-sidebar-header {
+    margin-bottom: 15px;
+}
+
+.results-info {
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+}
+
+.results-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.pagination-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f5f5f5;
+    padding: 4px;
+    border-radius: 20px;
+    /* Pill shape */
+    border: 1px solid #e0e0e0;
+}
+
+.pagination-input-group .btn {
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #ccc;
+    color: #555;
+    transition: all 0.2s;
+}
+
+.pagination-input-group .btn:hover:not(:disabled) {
+    background: #e6e6e6;
+    color: #333;
+    border-color: #bbb;
+}
+
+.pagination-input-group .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-info {
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+    padding: 0 5px;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+    .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .results-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .pagination-input-group {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* --- Filter Panel Modernization --- */
+
+.sidebar-header {
+    margin-bottom: 20px;
+}
+
+.search-group {
+    position: relative;
+    width: 100%;
+}
+
+/* Mobile Responsiveness for Drawer */
+@media (max-width: 992px) {
+    .drawer-layout-container {
+        display: block;
+        /* Stack or just rely on absolute drawer */
+    }
+
+    .main-results-area {
+        padding-left: 0;
+    }
+
+    .sidebar-drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 85%;
+        /* Max width for mobile */
+        max-width: 320px;
+        z-index: 1001;
+        /* Above backdrop */
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+        height: 100vh;
+    }
+
+    .sidebar-drawer.open {
+        width: 85%;
+        transform: translateX(0);
+    }
+
+    .drawer-backdrop.open {
+        display: block;
+    }
+}
+
+.search-clear-icon {
+    position: absolute;
+    right: 40px;
+    /* Adjust based on button presence */
+    top: 50%;
+    transform: translateY(-50%);
     cursor: pointer;
+    color: #999;
+    font-size: 18px;
+    z-index: 5;
+    /* Above input */
+}
+
+/* Adjust if button is hidden (desktop) */
+@media (min-width: 992px) {
+    .search-clear-icon {
+        right: 10px;
+    }
+}
+
+/* Active Filters - Mobile tweaks if needed */
+/* Handled by general styles */
+
+/* Toggle Switch Style */
+.checkbox-switch {
+    margin-bottom: 8px;
+    /* Spacing between items */
+}
+
+.checkbox-switch label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal;
+    font-size: 13px;
+    /* Slightly smaller for cleaner look */
+    color: #444;
+    padding: 4px 0;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.checkbox-switch input {
+    display: none;
+    /* Hide default checkbox */
+}
+
+.slider {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    background-color: #e0e0e0;
+    transition: .3s;
+    border-radius: 34px;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+input:checked+.slider {
+    background-color: #0070B9;
+}
+
+input:checked+.slider:before {
+    transform: translateX(14px);
+}
+
+.label-text {
+    flex-grow: 1;
+}
+
+/* Filter Badge (Count) */
+.filter-badge {
+    background-color: #f5f5f5;
+    color: #777;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 3px 7px;
+    font-size: 10px;
+}
+
+input:checked~.filter-badge {
+    background-color: #0070B9;
+    color: #fff;
+}
+
+/* Filter Section Headers */
+.filter-section h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #999;
+    font-weight: 700;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: none;
+    /* Remove line */
+    letter-spacing: 0.5px;
 }

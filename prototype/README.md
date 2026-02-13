@@ -51,3 +51,13 @@ The prototype now supports "tiered" filtering logic to match UAT behavior:
 - Selection of **Category: Phones** reveals the **Manufacturer** filter.
 - Selection of a **Manufacturer** (e.g., Apple) reveals the **Model** filter.
 - Unchecking a parent filter automatically hides and clears the dependent child filters.
+
+## 🎨 UI Refactor (New)
+
+The Stock List UI has been modernized with:
+1.  **Responsive Filter Drawer**: 
+    -   **Desktop**: Pushes content to the right.
+    -   **Mobile**: Full-screen overlay with backdrop.
+2.  **Persistent Search**: Always visible at the top.
+3.  **Active Chips**: Selected filters appear as chips below the search bar.
+4.  **Accordion Sections**: Filter categories are collapsible.
