@@ -486,7 +486,7 @@ h6,
 
 /* Ensure list container connects nicely */
 #stock-list-container {
-    border: 1px solid #ddd;
+    /* border: 1px solid #ddd; Removed */
     border-radius: 4px;
     /* Restore radius since header is detached/borderless */
     background: #fff;
