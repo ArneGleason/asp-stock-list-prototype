@@ -370,7 +370,7 @@
         <div class="offer-group" data-group-name="<%= model %>">
             <div class="offer-group-header">
                 <div class="header-left">
-                    <span class="product-title"><%= manufacturer %> <%= model %> <%= capacity %></span>
+                    <span class="product-title"><%= manufacturer %> <%= model %></span>
                     <% _.each(grades, function(g) { %>
                         <span class="chip grade"><%= g %></span>
                     <% }); %>
@@ -392,14 +392,17 @@
 
         <div class="offer-variant-row" data-sku="<%= sku %>">
             <!-- Left: Info -->
-            <div class="variant-info">
-                <span class="variant-color" style="min-width: 140px;">
-                    <%= description %>
-                </span>
-                <span class="variant-sku"><%= sku %></span>
-                <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
-                    <%= status || 'Draft' %>
-                </span>
+            <!-- Left Column: Info -->
+            <div class="variant-info-col">
+                <div class="variant-desc-row">
+                    <span class="variant-color"><%= description %></span>
+                </div>
+                <div class="variant-meta-row">
+                    <span class="variant-sku"><%= sku %></span>
+                    <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
+                        <%= status || 'Draft' %>
+                    </span>
+                </div>
             </div>
 
             <!-- Right: Controls -->
@@ -419,11 +422,30 @@
                     <span class="helper-text">List: $<%= listPrice %></span>
                 </div>
 
-                <!-- Remove Button -->
+                <!-- Item Total -->
+                <span class="item-total">
+                    <!-- Populated by JS -->
+                </span>
+
+                <!-- Actions -->
                 <% if (!status || status === 'Draft') { %>
                     <button class="offer-item-remove-btn offer-item-remove" title="Remove Item">
                         <span class="material-icons">delete_outline</span>
                     </button>
+                <% } else { %>
+                    <div class="variant-menu-container">
+                        <button class="variant-menu-btn" title="More Actions">
+                            <span class="material-icons">more_vert</span>
+                        </button>
+                        <div class="variant-overflow-menu">
+                            <div class="variant-menu-item action-view-cart">
+                                View in Cart
+                            </div>
+                            <div class="variant-menu-item action-cancel-offer danger">
+                                Cancel Offer
+                            </div>
+                        </div>
+                    </div>
                 <% } %>
             </div>
         </div>

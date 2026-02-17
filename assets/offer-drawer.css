@@ -76,7 +76,7 @@
     background: #fff;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    overflow: hidden;
+    /* overflow: hidden; Removed to allow menu overflow */
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
@@ -108,11 +108,12 @@
 /* They are in styles.css, so they will work here */
 
 
-/* Variant Row Layout (Single Row) */
+/* Variant Row Layout (Side-by-Side) */
 .offer-variant-row {
     padding: 12px 15px;
     border-bottom: 1px solid #f0f0f0;
     display: flex;
+    flex-direction: row;
     justify-content: space-between;
     align-items: center;
     gap: 15px;
@@ -122,13 +123,24 @@
     border-bottom: none;
 }
 
-/* Left Side: Info */
-.variant-info {
+/* Left Column: Info */
+.variant-info-col {
     display: flex;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    gap: 4px;
     flex: 1;
     min-width: 0;
+}
+
+.variant-desc-row {
+    display: flex;
+    align-items: center;
+}
+
+.variant-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .variant-color {
@@ -146,12 +158,15 @@
     font-family: monospace;
 }
 
-/* Right Side: Controls */
+/* Right Column: Controls */
+/* Right Column: Controls */
 .variant-offer-controls-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-shrink: 0;
+    justify-content: flex-end;
+    padding-top: 4px;
 }
 
 .control-wrapper {
@@ -201,6 +216,84 @@
     bottom: -14px;
     right: 0;
     white-space: nowrap;
+}
+
+.item-total {
+    font-weight: 600;
+    color: #333;
+    min-width: 90px;
+    text-align: right;
+    margin-right: 5px;
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+}
+
+.item-total .cents {
+    font-size: 0.75em;
+    color: #666;
+    margin-left: 1px;
+}
+
+/* Variant Overflow Menu */
+.variant-menu-container {
+    position: relative;
+    display: inline-block;
+}
+
+.variant-menu-btn {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.variant-menu-btn:hover {
+    color: #333;
+    background: #f0f0f0;
+}
+
+.variant-overflow-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    min-width: 140px;
+    display: none;
+    z-index: 10;
+    padding: 4px 0;
+}
+
+.variant-overflow-menu.open {
+    display: block;
+}
+
+.variant-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #333;
+}
+
+.variant-menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+.variant-menu-item.danger {
+    color: #d9534f;
 }
 
 .offer-item-remove-btn {

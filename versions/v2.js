@@ -169,7 +169,10 @@ $(function () {
             'click #drawer-menu-btn': 'toggleMenu',
             'click .btn-place-offer': 'placeOffers',
             'click .btn-group-action.remove': 'removeGroup',
-            'click .btn-group-action.add-all': 'addAllInGroup'
+            'click .btn-group-action.add-all': 'addAllInGroup',
+            'click .variant-menu-btn': 'toggleVariantMenu',
+            'click .action-view-cart': 'viewInCart',
+            'click .action-cancel-offer': 'cancelOffer'
         },
 
         initialize: function () {
@@ -177,6 +180,10 @@ $(function () {
             $(document).on('click', (e) => {
                 if (!$(e.target).closest('.overflow-menu-container').length) {
                     this.$('#drawer-overflow-menu').removeClass('open');
+                }
+                // Close variant menus
+                if (!$(e.target).closest('.variant-menu-container').length) {
+                    this.$('.variant-overflow-menu').removeClass('open');
                 }
             });
         },
@@ -260,8 +267,17 @@ $(function () {
                         availableQty: item.availableQty || 999, // Match stored property
                         price: offerPrice,
                         listPrice: item.listPrice || 0, // Match stored property
-                        status: item.status
+                        status: item.status,
+                        totalPromise: (item.qty * (item.price || 0)) // We can just do logic in template or calc here. 
+                        // Actually template doesn't have total param, so we need to add it or let JS init it.
+                        // Let's add it via logic after append or just rely on render.
+                        // Simplest: pass it to template? No, template needs modification. 
+                        // Wait, I updated HTML to include span. I need to populate it.
+                        // I'll populate it right after creating element.
                     }));
+
+                    const initialTotal = item.qty * (item.price || 0);
+                    $variantEl.find('.item-total').html(this.formatMoneyHTML(initialTotal));
 
                     $variantsContainer.append($variantEl);
 
@@ -377,7 +393,16 @@ $(function () {
                 }
 
                 OfferBuilderState.save();
+                OfferBuilderState.save();
                 OfferBuilderState.triggerUpdate(); // Essential for total recalculation
+            }
+
+            // Update local item total display
+            if (!isNaN(price) && price >= 0) {
+                const total = qty * price;
+                row.find('.item-total').html(this.formatMoneyHTML(total));
+            } else {
+                row.find('.item-total').html(this.formatMoneyHTML(0));
             }
         },
 
@@ -393,26 +418,39 @@ $(function () {
             this.closeDrawer();
         },
 
+        formatMoneyHTML: function (amount) {
+            const val = parseFloat(amount || 0);
+            const str = val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const parts = str.split('.');
+            return `<span class="dollars">$${parts[0]}</span><span class="cents">.${parts[1]}</span>`;
+        },
+
+        toggleVariantMenu: function (e) {
+            e.stopPropagation();
+            // Close others
+            $('.variant-overflow-menu').not($(e.currentTarget).next()).removeClass('open');
+            $(e.currentTarget).next('.variant-overflow-menu').toggleClass('open');
+        },
+
+        viewInCart: function (e) {
+            alert('View in Cart clicked (Mock)');
+            $(e.currentTarget).closest('.variant-overflow-menu').removeClass('open');
+        },
+
+        cancelOffer: function (e) {
+            // Mock cancel
+            if (confirm('Are you sure you want to cancel this offer?')) {
+                const sku = $(e.currentTarget).closest('.offer-variant-row').data('sku');
+                // In real app, we would call API. For now, just remove from pinned items
+                if (sku) {
+                    OfferBuilderState.togglePin({ sku: sku });
+                }
+            }
+        },
+
         generateXLSX: function () {
             const items = Object.values(OfferBuilderState.pinnedItems);
-            if (items.length === 0) return;
-
-            const data = items.map(item => ({
-                "SKU": item.sku,
-                "Model": item.model,
-                "Manufacturer": item.manufacturer,
-                "Quantity": item.qty,
-                "List Price": item.priceRange || 0,
-                "Offer Price": item.price || 0,
-                "Status": item.status || 'New',
-                "Total": (item.qty * (item.price || 0))
-            }));
-
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Offer");
-            XLSX.writeFile(workbook, "Stock_Offer.xlsx");
-            this.$('#drawer-overflow-menu').removeClass('open');
+            // ... existing code ...
         }
     });
 
