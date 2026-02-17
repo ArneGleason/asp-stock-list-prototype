@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V2 - Stock List | Hyla UAT Clone</title>
+
+    <!-- Bootstrap 3.4.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="../assets/styles.css">
+    <link rel="stylesheet" href="../assets/offer-bar.css">
+    <link rel="stylesheet" href="../assets/offer-drawer.css">
+</head>
+
+<body>
+    <div id="prototype-nav"></div>
+
+    <!-- Header / Navigation (Simplified) -->
+    <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                    aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">ASP</a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="#">STOCK LIST</a></li>
+                    <li><a href="#">AUCTION</a></li>
+                    <li><a href="#">PO</a></li>
+                    <li><a href="#">GRADING SCALE</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#">HELP</a></li>
+                    <li><a href="#">ACCOUNT <span class="caret"></span></a></li>
+                    <li><a href="#">LOGOUT</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container main-content-area">
+
+        <!-- Alerts (Mocked) -->
+        <div class="alert alert-warning alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span
+                    aria-hidden="true">&times;</span></button>
+            <span class="glyphicon glyphicon-bullhorn" aria-hidden="true"></span>
+            1 Auctions open for bidding today. <a href="#" class="alert-link">SEE AUCTIONS</a>
+        </div>
+
+        <!-- Toolbar (Mocked) -->
+        <!-- Toolbar (Actions) -->
+        <div class="row" style="margin-bottom: 15px;">
+            <div class="col-xs-12 text-right action-bar">
+                <div class="btn-group" role="group">
+                    <button class="btn btn-default action-btn"><span class="material-icons">file_upload</span>
+                        Import</button>
+                    <button class="btn btn-default action-btn"><span class="material-icons">file_download</span>
+                        Export</button>
+                </div>
+                <button class="btn btn-primary action-btn btn-cart" style="margin-left: 10px;">
+                    <span class="material-icons">shopping_cart</span> Cart
+                    <span class="badge">2</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Unified Search Header (Toolbar) -->
+        <div class="row search-header-row">
+            <div class="col-xs-12">
+                <div class="stock-list-toolbar">
+                    <button class="btn btn-default" type="button" id="filter-toggle-btn" aria-expanded="false"
+                        aria-controls="filter-drawer">
+                        <span class="material-icons">filter_list</span>
+                        <span class="btn-label">Filters</span>
+                        <span class="badge filter-count" style="display: none;">0</span>
+                    </button>
+                    <div class="search-input-wrapper">
+                        <input type="text" class="form-control" id="search-input" placeholder="Search Model...">
+                        <span id="search-clear" class="material-icons search-clear-icon"
+                            style="display: none;">close</span>
+                    </div>
+                </div>
+                <!-- Active Filters Row -->
+                <div id="active-filters-container" class="active-filters-row"></div>
+            </div>
+        </div>
+
+        <div class="drawer-layout-container">
+            <!-- Sidebar Drawer -->
+            <aside id="filter-drawer" class="sidebar-drawer">
+                <div class="drawer-header">
+                    <h4 class="drawer-title">Filters</h4>
+                    <button type="button" class="close-drawer-btn" id="close-drawer" aria-label="Close">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+                <div class="drawer-content">
+                    <div class="filter-group-toggle">
+                        <div class="checkbox-switch">
+                            <label>
+                                <input type="checkbox" id="filter-oos">
+                                <span class="slider round"></span>
+                                <span class="label-text">Include Out of Stock</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="sidebar-filters-container">
+                        <!-- Filters injected here by SidebarView -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Drawer Backdrop (Mobile only) -->
+            <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+            <!-- Main Results Area -->
+            <main class="main-results-area">
+                <!-- Stock List Results -->
+                <div class="results-header">
+                    <div class="results-info">
+                        <span id="total-counts" class="text-muted">Loading...</span>
+                    </div>
+                    <div class="results-controls">
+                        <!-- Toggle All Button -->
+                        <button class="btn btn-default btn-sm" id="toggle-all-details" style="margin-right: 10px;">
+                            <span class="material-icons"
+                                style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All
+                        </button>
+                        <div id="top-pagination"></div>
+                    </div>
+                </div>
+
+                <div id="stock-list-container">
+                    <!-- Product Cards injected here -->
+                    <div class="text-center" style="padding: 50px;">
+                        <div class="loader"></div>
+                        <p class="text-muted" style="margin-top: 10px;">Loading stock data...</p>
+                    </div>
+                </div>
+
+                <!-- Pagination (Bottom) -->
+                <nav aria-label="Page navigation" class="text-center">
+                    <ul class="pagination" id="pagination-controls">
+                        <!-- Pagination Links -->
+                    </ul>
+                </nav>
+            </main>
+        </div>
+    </div>
+
+    <!-- Experiment Controls -->
+
+
+    <!-- Templates (Underscore.js) -->
+
+    <!-- Filters Template -->
+    <script type="text/template" id="filter-group-template">
+        <div class="filter-group">
+            <h4><%= title %></h4>
+            <% _.each(items, function(item) { %>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" class="filter-checkbox" data-type="<%= type %>" value="<%= item.label %>"> 
+                        <%= item.label %>
+                        <span class="filter-count text-muted">(<%= item.count %>)</span>
+                    </label>
+                </div>
+            <% }); %>
+        </div>
+    </script>
+
+    <!-- Transaction Modal (Buy / Offer) -->
+    <div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="modal-item-title">Item Title</h4>
+                    <small class="text-muted" id="modal-item-sku">Item #</small>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Available:</strong> <span id="modal-avail-qty">0</span></p>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <p><strong>List Price:</strong> <span id="modal-list-price">$0.00</span></p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <form class="form-horizontal">
+                        <div class="form-group">
+                            <label for="modal-qty" class="col-sm-3 control-label">Quantity</label>
+                            <div class="col-sm-4">
+                                <input type="number" class="form-control" id="modal-qty" value="1" min="1">
+                            </div>
+                        </div>
+
+                        <!-- Offer Price (Hidden in Buy Mode) -->
+                        <div class="form-group" id="modal-offer-price-group" style="display:none;">
+                            <label for="modal-offer-price" class="col-sm-3 control-label">Your Offer</label>
+                            <div class="col-sm-4">
+                                <div class="input-group">
+                                    <span class="input-group-addon">$</span>
+                                    <input type="number" class="form-control" id="modal-offer-price" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Total (Only relevant for Buy, or calc for offer) -->
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">Total</label>
+                            <div class="col-sm-9">
+                                <p class="form-control-static" id="modal-total"
+                                    style="font-weight: bold; font-size: 1.2em;">$0.00</p>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div id="offer-disclaimer" class="alert alert-warning"
+                        style="display:none; margin-top: 10px; font-size: 0.9em;">
+                        <strong>Note:</strong> Offers are cleared every day starting 11:00AM Central Time (CT).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="pull-left">
+                        <a href="#" id="modal-mode-toggle">Make an Offer</a>
+                    </div>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="modal-submit-btn">ADD TO CART</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Card Template -->
+    <script type="text/template" id="product-card-template">
+        <div class="product-card">
+            <!-- Header (Collapsed) -->
+            <div class="card-header-row" data-id="<%= id %>">
+                <div class="header-left">
+                    <span class="material-icons chevron expanded">chevron_right</span>
+                    <span class="product-title"><%= model %></span> <!-- already includes capacity -->
+                    <span class="chip grade"><%= grade %></span>
+                    <span class="chip warehouse"><%= warehouse %></span>
+                    
+                    <span class="variant-badge"><%= variants.length %> Variant<%= variants.length !== 1 ? 's' : '' %></span>
+                    <% if (varyingAttributes) { %>
+                        <span class="variant-sneak-peek text-muted">Mixed: <%= varyingAttributes %></span>
+                    <% } %>
+                    <span class="total-qty">Qty: <strong><%= quantity %></strong></span>
+                </div>
+                <div class="header-right">
+                    <span class="price-range"><%= priceRange %></span>
+                    <button class="btn btn-link btn-pin" data-id="<%= id %>" style="padding: 0; color: #8BA1A7; margin-left: 10px;">
+                        <span class="material-icons">bookmark_border</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body (Expanded) -->
+            <div class="card-body" style="display: block;">
+                <% _.each(variants, function(variant) { %>
+                    <div class="variant-row">
+                        <div class="variant-info">
+                            <span class="variant-color" style="min-width: 120px;">
+                                <%= variant.color %>
+                                <% if (variant.network && variant.network !== 'N/A') { %>
+                                    <span class="text-muted" style="font-size: 0.9em;">(<%= variant.network %>)</span>
+                                <% } %>
+                            </span>
+                            <span class="variant-sku"><%= variant.sku %></span>
+                            <span class="variant-qty text-muted">Qty: <%= variant.quantity %></span>
+                        </div>
+                        <div class="variant-actions">
+                            <span class="variant-price">$<%= variant.price.toFixed(2) %></span>
+                            <button class="btn btn-default btn-offer" data-id="<%= id %>" data-sku="<%= variant.sku %>">OFFER</button>
+                            <button class="btn btn-primary btn-buy" data-id="<%= id %>" data-sku="<%= variant.sku %>">BUY</button>
+                            <button class="btn btn-link btn-pin-variant" data-sku="<%= variant.sku %>" style="padding: 0; color: #8BA1A7; margin-left: 5px;">
+                                <span class="material-icons">bookmark_border</span>
+                            </button>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+    </script>
+
+    <!-- Offer Bar (Sticky Footer) -->
+    <div id="offer-bar">
+        <div class="offer-bar-left">
+            <span class="material-icons" style="font-size: 20px; color: #fff;">inventory_2</span>
+            <span class="offer-label">Offer Worksheet</span>
+            <span class="offer-count-badge">0 Items</span>
+        </div>
+        <div class="offer-bar-center">
+            <span class="offer-value-text">Select items to start</span>
+        </div>
+        <div class="offer-bar-right">
+            <button class="btn-clear-offer">Clear All</button>
+            <button class="btn-review-offer">Draft Offers</button>
+        </div>
+    </div>
+
+    <!-- Offer Drawer (Right Side) -->
+    <div id="offer-drawer" class="offer-drawer">
+        <div class="drawer-header">
+            <div class="drawer-title">
+                <span class="material-icons">inventory_2</span>
+                Offer Worksheet
+            </div>
+            <div class="drawer-actions">
+                <div class="overflow-menu-container">
+                    <button class="drawer-action-btn" id="drawer-menu-btn">
+                        <span class="material-icons">more_vert</span>
+                    </button>
+                    <div class="overflow-menu" id="drawer-overflow-menu">
+                        <div class="overflow-menu-item btn-generate-xlsx">
+                            <span class="material-icons">file_download</span>
+                            Export to XLSX
+                        </div>
+                    </div>
+                </div>
+                <button class="drawer-action-btn drawer-close-btn">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+        </div>
+        <div class="drawer-body">
+            <div class="offer-item-list">
+                <!-- Items will be injected here via JS Template -->
+                <div class="text-center text-muted" style="padding: 20px;">
+                    No items selected.
+                </div>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn-place-offer" disabled>
+                <span class="material-icons">shopping_cart_checkout</span>
+                Place Offers
+            </button>
+            <div class="offer-summary">
+                <span>Total</span>
+                <span class="offer-total-amount">$0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/template" id="offer-group-template">
+        <div class="offer-group" data-group-name="<%= model %>">
+            <div class="offer-group-header">
+                <div class="header-left">
+                    <span class="product-title"><%= manufacturer %> <%= model %></span>
+                    <% _.each(grades, function(g) { %>
+                        <span class="chip grade"><%= g %></span>
+                    <% }); %>
+                    <% _.each(warehouses, function(w) { %>
+                        <span class="chip warehouse"><%= w %></span>
+                    <% }); %>
+                </div>
+                <!-- Optional: Add remove group button here if needed -->
+                <!-- <div class="header-right">...</div> -->
+            </div>
+            <div class="offer-group-variants">
+                <!-- Variants injected here -->
+            </div>
+        </div>
+    </script>
+
+    <!-- Variant Row Template -->
+    <script type="text/template" id="offer-variant-template">
+
+        <div class="offer-variant-row" data-sku="<%= sku %>">
+            <!-- Left: Info -->
+            <!-- Left Column: Info -->
+            <div class="variant-info-col">
+                <div class="variant-desc-row">
+                    <span class="variant-color"><%= description %></span>
+                </div>
+                <div class="variant-meta-row">
+                    <span class="variant-sku"><%= sku %></span>
+                    <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
+                        <%= status || 'Draft' %>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Right: Controls -->
+            <div class="variant-offer-controls-row">
+                 <!-- Qty Input -->
+                 <div class="control-wrapper">
+                    <input type="number" class="control-input qty" value="<%= qty %>" min="1" max="<%= availableQty %>">
+                    <span class="helper-text">Avail: <%= availableQty %></span>
+                </div>
+
+                <!-- Price Input -->
+                <div class="control-wrapper">
+                    <div class="input-container">
+                        <span class="input-prefix">$</span>
+                        <input type="number" class="control-input price" value="<%= price %>" placeholder="0.00" step="0.01">
+                    </div>
+                    <span class="helper-text">List: $<%= listPrice %></span>
+                </div>
+
+                <!-- Item Total -->
+                <span class="item-total">
+                    <!-- Populated by JS -->
+                </span>
+
+                <!-- Actions -->
+                <% if (!status || status === 'Draft') { %>
+                    <button class="offer-item-remove-btn offer-item-remove" title="Remove Item">
+                        <span class="material-icons">delete_outline</span>
+                    </button>
+                <% } else { %>
+                    <div class="variant-menu-container">
+                        <button class="variant-menu-btn" title="More Actions">
+                            <span class="material-icons">more_vert</span>
+                        </button>
+                        <div class="variant-overflow-menu">
+                            <div class="variant-menu-item action-view-cart">
+                                View in Cart
+                            </div>
+                            <div class="variant-menu-item action-cancel-offer danger">
+                                Cancel Offer
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </script>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.1/underscore-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.0/backbone-min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <!-- SheetJS for XLSX -->
+    <script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+
+    <!-- App Logic -->
+    <script src="../assets/mock-data.js"></script>
+    <script src="v2.js?v=<%= new Date().getTime() %>"></script>
+    <script src="../assets/nav.js"></script>
+
+</body>
+
+</html>
