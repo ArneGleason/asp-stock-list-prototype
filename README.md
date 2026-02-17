@@ -61,3 +61,19 @@ The Stock List UI has been modernized with:
 2.  **Persistent Search**: Always visible at the top.
 3.  **Active Chips**: Selected filters appear as chips below the search bar.
 4.  **Accordion Sections**: Filter categories are collapsible.
+
+## 🚦 Version Protocol
+
+To manage parallel development without confusion, we adhere to the following version definitions and communication rules:
+
+### Version Definitions
+| ID | Name | Role | File Path |
+| :--- | :--- | :--- | :--- |
+| **V1** | **Baseline** | **Stable Reference.** Reflects the current production/UAT state. Changes here should be limited to bug fixes or global refactors. | `versions/v1.html` |
+| **V2** | **Experiment A** | **Dev Bench.** Use this for testing new features, major UI overhauls, or risky changes. | `versions/v2.html` |
+| **V3** | **Experiment B** | **Alternative Path.** Use this for comparing different approaches or testing a second unrelated feature. | `versions/v3.html` |
+
+### Communication Handshake
+1.  **Always Specify Target**: When requesting a change, explicitly state the version (e.g., *"In V2, change the button color"* or *"Apply catch-up fixes to V1"*).
+2.  **Ambiguity Check**: If a request does not specify a version, I will ask for clarification before proceeding to avoid overriding the wrong baseline.
+3.  **Cross-Version Porting**: If a feature in V2 is approved, explicitly request to *"Promote V2 feature X to V1"* or *"Copy V2 to V3"*.
