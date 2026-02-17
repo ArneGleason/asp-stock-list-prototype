@@ -308,17 +308,15 @@
 
     <!-- Offer Bar (Sticky Footer) -->
     <div id="offer-bar">
-        <div class="offer-bar-left">
-            <span class="material-icons" style="font-size: 20px; color: #fff;">inventory_2</span>
-            <span class="offer-label">Offer Worksheet</span>
-            <span class="offer-count-badge">0 Items</span>
-        </div>
-        <div class="offer-bar-center">
-            <span class="offer-value-text">Select items to start</span>
-        </div>
-        <div class="offer-bar-right">
-            <button class="btn-clear-offer">Clear All</button>
-            <button class="btn-review-offer">Draft Offers</button>
+        <div class="offer-bar-content">
+            <div class="offer-badge-container">
+                <span class="offer-count-badge">0 Items</span>
+                <span class="material-icons offer-clear-btn" title="Clear All">close</span>
+            </div>
+            <button class="btn-review-offer">
+                Offer Worksheet <span class="material-icons"
+                    style="vertical-align: middle; margin-left: 5px; font-size: 18px;">vertical_split</span>
+            </button>
         </div>
     </div>
 
@@ -355,14 +353,14 @@
             </div>
         </div>
         <div class="drawer-footer">
-            <div class="offer-summary">
-                <span>Total Value:</span>
-                <span class="offer-total-amount">$0.00</span>
-            </div>
             <button class="btn-place-offer" disabled>
                 <span class="material-icons">shopping_cart_checkout</span>
                 Place Offers
             </button>
+            <div class="offer-summary">
+                <span>Total</span>
+                <span class="offer-total-amount">$0.00</span>
+            </div>
         </div>
     </div>
 

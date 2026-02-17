@@ -118,7 +118,7 @@ $(function () {
         el: '#offer-bar',
 
         events: {
-            'click .btn-clear-offer': 'clearAll',
+            'click .offer-clear-btn': 'clearAll',
             'click .btn-review-offer': 'reviewOffer'
         },
 
@@ -131,12 +131,10 @@ $(function () {
         render: function () {
             const pinnedCount = Object.keys(OfferBuilderState.pinnedItems).length;
             const $countBadge = this.$('.offer-count-badge');
-            const $valueText = this.$('.offer-value-text');
 
             if (pinnedCount > 0) {
                 this.$el.addClass('visible');
                 $countBadge.text(pinnedCount + (pinnedCount === 1 ? ' Item' : ' Items'));
-                $valueText.text('Items pinned for offer review');
             } else {
                 this.$el.removeClass('visible');
             }
@@ -144,7 +142,6 @@ $(function () {
 
         clearAll: function (e) {
             e.preventDefault();
-            // Removed confirm for easier testing
             OfferBuilderState.clearAll();
         },
 
@@ -178,12 +175,21 @@ $(function () {
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
             $(document).on('click', (e) => {
-                if (!$(e.target).closest('.overflow-menu-container').length) {
+                const $target = $(e.target);
+
+                // Close overflow menus if clicked outside
+                if (!$target.closest('.overflow-menu-container').length) {
                     this.$('#drawer-overflow-menu').removeClass('open');
                 }
-                // Close variant menus
-                if (!$(e.target).closest('.variant-menu-container').length) {
+                if (!$target.closest('.variant-menu-container').length) {
                     this.$('.variant-overflow-menu').removeClass('open');
+                }
+
+                // Close drawer if clicked outside drawer AND outside the toggle bar
+                if (!$target.closest('#offer-drawer').length && !$target.closest('#offer-bar').length) {
+                    if (this.$el.hasClass('open')) {
+                        this.closeDrawer();
+                    }
                 }
             });
         },
@@ -289,8 +295,9 @@ $(function () {
                 listContainer.append($groupEl);
             });
 
-            this.$('.offer-total-amount').text('$' + totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-            this.$('.btn-place-offer').prop('disabled', !hasValidOffer);
+            // Update total value based on ALL items
+            this.updateTotalValue(items);
+            this.$('.btn-place-offer').prop('disabled', !hasValidOffer && items.length > 0);
         },
 
         closeDrawer: function () {
@@ -418,6 +425,24 @@ $(function () {
             this.closeDrawer();
         },
 
+        onSearchInput: function () {
+            this.render();
+            // Focus is maintained by browser usually, but strict re-render might lose it if input is inside?
+            // Wait, input is NOT inside .offer-item-list, it serves as header. So focus is safe.
+        },
+
+        updateTotalValue: function (items) {
+            let total = 0;
+            items.forEach(item => {
+                const price = parseFloat(item.price || 0);
+                const qty = parseInt(item.qty || 0);
+                if (!isNaN(price) && !isNaN(qty)) {
+                    total += price * qty;
+                }
+            });
+            this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        },
+
         formatMoneyHTML: function (amount) {
             const val = parseFloat(amount || 0);
             const str = val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -446,6 +471,18 @@ $(function () {
                     OfferBuilderState.togglePin({ sku: sku });
                 }
             }
+        },
+
+        updateTotalValue: function (items) {
+            let total = 0;
+            items.forEach(item => {
+                const price = parseFloat(item.price || 0);
+                const qty = parseInt(item.qty || 0);
+                if (!isNaN(price) && !isNaN(qty)) {
+                    total += price * qty;
+                }
+            });
+            this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         },
 
         generateXLSX: function () {
