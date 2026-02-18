@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V2 - Stock List | Hyla UAT Clone</title>
+    <title>V3 - Stock List | Hyla UAT Clone</title>
 
     <!-- Bootstrap 3.4.1 -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
@@ -16,15 +16,10 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- Custom Styles -->
     <link rel="stylesheet" href="../assets/styles.css">
-    <link rel="stylesheet" href="../assets/offer-bar.css">
-    <link rel="stylesheet" href="../assets/offer-drawer.css">
 </head>
 
 <body>
     <div id="prototype-nav"></div>
-    <div
-        style="position:fixed; top:0; right:0; z-index:9999; background:rgba(0,0,0,0.5); color:white; padding:2px 5px; font-size:10px; pointer-events:none;">
-        v2.2</div>
 
     <!-- Header / Navigation (Simplified) -->
     <nav class="navbar navbar-default navbar-static-top">
@@ -141,11 +136,6 @@
                         <span id="total-counts" class="text-muted">Loading...</span>
                     </div>
                     <div class="results-controls">
-                        <!-- Toggle All Button -->
-                        <button class="btn btn-default btn-sm" id="toggle-all-details" style="margin-right: 10px;">
-                            <span class="material-icons"
-                                style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All
-                        </button>
                         <div id="top-pagination"></div>
                     </div>
                 </div>
@@ -153,8 +143,7 @@
                 <div id="stock-list-container">
                     <!-- Product Cards injected here -->
                     <div class="text-center" style="padding: 50px;">
-                        <div class="loader"></div>
-                        <p class="text-muted" style="margin-top: 10px;">Loading stock data...</p>
+                        <img src="https://i.gifer.com/ZZ5H.gif" alt="Loading..." style="width: 50px;">
                     </div>
                 </div>
 
@@ -262,7 +251,7 @@
             <!-- Header (Collapsed) -->
             <div class="card-header-row" data-id="<%= id %>">
                 <div class="header-left">
-                    <span class="material-icons chevron expanded">chevron_right</span>
+                    <span class="material-icons chevron">chevron_right</span>
                     <span class="product-title"><%= model %></span> <!-- already includes capacity -->
                     <span class="chip grade"><%= grade %></span>
                     <span class="chip warehouse"><%= warehouse %></span>
@@ -274,33 +263,12 @@
                     <span class="total-qty">Qty: <strong><%= quantity %></strong></span>
                 </div>
                 <div class="header-right">
-                    <% 
-                        // Calculate offer status counts
-                        var statusCounts = {};
-                        _.each(variants, function(v) {
-                            if (v.offerStatus) {
-                                statusCounts[v.offerStatus] = (statusCounts[v.offerStatus] || 0) + 1;
-                            }
-                        });
-                        var statuses = ['Pending', 'Countered', 'Accepted', 'Rejected'];
-                    %>
-                    <% _.each(statuses, function(status) { %>
-                        <% if (statusCounts[status]) { %>
-                            <span class="offer-status-group-summary <%= status.toLowerCase() %>">
-                                <%= status %>: <%= statusCounts[status] %>
-                            </span>
-                        <% } %>
-                    <% }); %>
-
                     <span class="price-range"><%= priceRange %></span>
-                    <button class="btn btn-link btn-pin" data-id="<%= id %>" style="padding: 0; color: #8BA1A7; margin-left: 10px;">
-                        <span class="material-icons">bookmark_border</span>
-                    </button>
                 </div>
             </div>
 
             <!-- Body (Expanded) -->
-            <div class="card-body" style="display: block;">
+            <div class="card-body">
                 <% _.each(variants, function(variant) { %>
                     <div class="variant-row">
                         <div class="variant-info">
@@ -315,183 +283,11 @@
                         </div>
                         <div class="variant-actions">
                             <span class="variant-price">$<%= variant.price.toFixed(2) %></span>
-                            <% if (variant.offerStatus) { %>
-                                <button class="btn btn-default btn-offer-status" data-status="<%= variant.offerStatus %>" style="min-width: 130px; font-weight: 600;">
-                                    <%= variant.offerStatus.toUpperCase() %>
-                                </button>
-                            <% } else { %>
-                                <button class="btn btn-default btn-offer" data-id="<%= id %>" data-sku="<%= variant.sku %>">OFFER</button>
-                                <button class="btn btn-primary btn-buy" data-id="<%= id %>" data-sku="<%= variant.sku %>">BUY</button>
-                                <button class="btn btn-link btn-pin-variant" data-sku="<%= variant.sku %>" style="padding: 0; color: #8BA1A7; margin-left: 5px;">
-                                    <span class="material-icons">bookmark_border</span>
-                                </button>
-                            <% } %>
+                            <button class="btn btn-default btn-offer" data-id="<%= id %>" data-sku="<%= variant.sku %>">OFFER</button>
+                            <button class="btn btn-primary btn-buy" data-id="<%= id %>" data-sku="<%= variant.sku %>">BUY</button>
                         </div>
                     </div>
                 <% }); %>
-            </div>
-        </div>
-    </script>
-
-    <!-- Offer Bar (Sticky Footer) -->
-    <div id="offer-bar">
-        <div class="offer-bar-content">
-            <div class="offer-badge-container">
-                <span class="offer-count-badge">0 Items</span>
-                <span class="material-icons offer-clear-btn" title="Clear All">close</span>
-            </div>
-            <button class="btn-review-offer">
-                Offer Worksheet <span class="material-icons"
-                    style="vertical-align: middle; margin-left: 5px; font-size: 18px;">grid_view</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Offer Drawer (Right Side) -->
-    <div id="offer-drawer" class="offer-drawer">
-        <div class="drawer-header">
-            <div class="drawer-title">
-                <span class="material-icons">grid_view</span>
-                Offer Worksheet <span style="font-size: 10px; color: #ccc; margin-left: 5px;">v2.7</span>
-            </div>
-            <div class="drawer-actions">
-                <div class="overflow-menu-container">
-                    <button class="drawer-action-btn" id="drawer-menu-btn">
-                        <span class="material-icons">more_vert</span>
-                    </button>
-                    <div class="overflow-menu" id="drawer-overflow-menu">
-                        <div class="overflow-menu-item btn-generate-xlsx">
-                            <span class="material-icons">file_download</span>
-                            Export to XLSX
-                        </div>
-                    </div>
-                </div>
-                <button class="drawer-action-btn drawer-close-btn">
-                    <span class="material-icons">close</span>
-                </button>
-            </div>
-        </div>
-        <div class="drawer-body">
-            <div class="offer-item-list">
-                <!-- Items will be injected here via JS Template -->
-                <div class="text-center text-muted" style="padding: 20px;">
-                    No items selected.
-                </div>
-            </div>
-        </div>
-        <div class="drawer-footer">
-            <button class="btn-place-offer" disabled>
-                <span class="material-icons">shopping_cart_checkout</span>
-                Place Offers
-                <span class="badge count-badge" style="display:none">0</span>
-            </button>
-            <div class="offer-summary">
-                <span>Total</span>
-                <span class="offer-total-amount">$0.00</span>
-            </div>
-        </div>
-    </div>
-
-    <script type="text/template" id="offer-group-template">
-        <div class="offer-group" data-group-key="<%= groupKey %>">
-            <div class="offer-group-header">
-                <div class="header-left">
-                    <span class="product-title"><%= manufacturer %> <%= model %></span>
-                    <% _.each(grades, function(g) { %>
-                        <span class="chip grade"><%= g %></span>
-                    <% }); %>
-                    <% _.each(warehouses, function(w) { %>
-                        <span class="chip warehouse"><%= w %></span>
-                    <% }); %>
-                </div>
-                <!-- Optional: Add remove group button here if needed -->
-                <!-- <div class="header-right">...</div> -->
-            </div>
-            <div class="offer-group-variants">
-                <!-- Variants injected here -->
-            </div>
-        </div>
-    </script>
-
-    <!-- Variant Row Template -->
-    <script type="text/template" id="offer-variant-template">
-
-        <div class="offer-variant-row" data-sku="<%= sku %>">
-            <!-- Left: Info -->
-            <!-- Left Column: Info -->
-            <div class="variant-info-col">
-                <div class="variant-desc-row">
-                    <% if (hasUnsubmittedChanges) { %>
-                        <div class="unsubmitted-dot" title="Has Unsubmitted Edits"></div>
-                    <% } else { %>
-                        <div class="unsubmitted-dot" style="display: none;" title="Has Unsubmitted Edits"></div>
-                    <% } %>
-                    <span class="variant-color"><%= description %></span>
-                </div>
-                <div class="variant-meta-row">
-                    <span class="variant-sku"><%= sku %></span>
-                    <% if (status === 'Countered') { %>
-                        <span class="variant-status-badge status-countered" title="Counter Offer">
-                            COUNTERED: <%= counterQty %> @ $<%= counterPrice.toFixed(2) %>
-                            <a href="#" class="accept-counter-offer action-link" data-sku="<%= sku %>">Accept</a>
-                        </span>
-                    <% } else { %>
-                        <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
-                            <%= status || 'Draft' %>
-                        </span>
-                    <% } %>
-                </div>
-            </div>
-
-            <!-- Right: Controls -->
-            <div class="variant-offer-controls-row">
-                 <!-- Qty Input -->
-                 <div class="control-wrapper">
-                    <span class="edited-label" style="display: none;">Edited</span>
-                    <input type="number" class="control-input qty" value="<%= qty %>" min="1" max="<%= availableQty %>" data-submitted-val="<%= submittedQty %>" <% if (status === 'In Cart') { %>disabled<% } %>>
-                    <span class="helper-text">Avail: <%= availableQty %></span>
-                </div>
-
-                <!-- Price Input -->
-                
-                <div class="input-container control-wrapper">
-                    <span class="edited-label" style="display: none;">Edited</span>
-                    <span class="input-prefix">$</span>
-                    <input type="number" class="control-input price" value="<%= price %>" placeholder="0.00" step="0.01" data-submitted-val="<%= submittedPrice %>" <% if (status === 'In Cart') { %>disabled<% } %>>
-                    <span class="helper-text static-list-price">List: $<%= listPrice %></span>
-                </div>
-                
-                <!-- Item Total & Feedback -->
-                <div class="total-wrapper">
-                    <span class="item-total">
-                        <!-- Populated by JS -->
-                    </span>
-                    <div class="offer-feedback">
-                        <span class="feedback-badge"></span>
-                        <span class="feedback-caption"></span>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <% if (!status || status === 'Draft') { %>
-                    <button class="offer-item-remove-btn offer-item-remove" title="Remove Item">
-                        <span class="material-icons">delete_outline</span>
-                    </button>
-                <% } else { %>
-                    <div class="variant-menu-container">
-                        <button class="variant-menu-btn" title="More Actions">
-                            <span class="material-icons">more_vert</span>
-                        </button>
-                        <div class="variant-overflow-menu">
-                            <div class="variant-menu-item action-view-cart">
-                                View in Cart
-                            </div>
-                            <div class="variant-menu-item action-cancel-offer danger">
-                                Cancel Offer
-                            </div>
-                        </div>
-                    </div>
-                <% } %>
             </div>
         </div>
     </script>
@@ -501,12 +297,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.1/underscore-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.0/backbone-min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
-    <!-- SheetJS for XLSX -->
-    <script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+
     <!-- App Logic -->
-    <script src="../assets/mock-data.js?v=2.8"></script>
-    <script src="v2.js?v=2.8"></script>
-    <script src="../assets/nav.js?v=2.8"></script>
+    <script src="../assets/mock-data.js"></script>
+    <script src="v3.js"></script>
+    <script src="../assets/nav.js"></script>
 
 </body>
 

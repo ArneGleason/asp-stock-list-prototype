@@ -278,6 +278,15 @@
     font-size: 13px;
     text-align: right;
     height: 32px;
+    /* Hide Spinners */
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.control-input::-webkit-outer-spin-button,
+.control-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .control-input.qty {
@@ -311,6 +320,100 @@
     bottom: -14px;
     right: 0;
     white-space: nowrap;
+}
+
+/* Price Feedback Area */
+.static-list-price {
+    font-size: 10px;
+    color: #999;
+    margin-top: 2px;
+}
+
+.control-input.warning {
+    border-color: #ff9800 !important;
+    /* Orange for warning */
+}
+
+.control-input.buying {
+    border-color: #0070B9 !important;
+    /* Blue for buying at list */
+}
+
+.control-input.offer {
+    border-color: #2e7d32 !important;
+}
+
+.helper-text.warning {
+    color: #ff9800 !important;
+}
+
+.helper-text.buying {
+    color: #0070B9 !important;
+}
+
+.helper-text.buying {
+    color: #0070B9 !important;
+}
+
+.helper-text.offer {
+    color: #2e7d32 !important;
+}
+
+.total-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    min-width: 80px;
+}
+
+.offer-feedback {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 0;
+    gap: 0;
+}
+
+.feedback-badge {
+    font-size: 9px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: none;
+    margin-bottom: 1px;
+    color: white;
+}
+
+.feedback-badge.visible {
+    display: inline-block;
+}
+
+.feedback-badge.muted {
+    background-color: #999;
+}
+
+.feedback-badge.offer {
+    background-color: #2e7d32;
+}
+
+.feedback-badge.buying {
+    background-color: #0070B9;
+}
+
+.feedback-caption {
+    font-size: 10px;
+    color: #666;
+    white-space: nowrap;
+}
+
+.feedback-caption.offer {
+    color: #2e7d32;
+}
+
+.feedback-caption.buying {
+    color: #0070B9;
 }
 
 .item-total {
@@ -422,19 +525,28 @@
     color: #383d41;
 }
 
-.status-offer-placed {
-    background: #cce5ff;
-    color: #004085;
+.status-pending {
+    background-color: #ff9800;
+    /* Orange */
+    color: #fff;
 }
 
-.status-offer-accepted {
-    background: #d4edda;
-    color: #155724;
+.status-countered {
+    background-color: #2196f3;
+    /* Blue */
+    color: #fff;
 }
 
-.status-offer-rejected {
-    background: #f8d7da;
-    color: #721c24;
+.status-accepted {
+    background-color: #4caf50;
+    /* Green */
+    color: #fff;
+}
+
+.status-rejected {
+    background-color: #f44336;
+    /* Red */
+    color: #fff;
 }
 
 
@@ -578,4 +690,66 @@
         align-items: flex-end;
         gap: 0;
     }
+}
+
+/* Edited Label */
+.edited-label {
+    position: absolute;
+    top: -12px;
+    left: 0;
+    font-size: 9px;
+    font-weight: 700;
+    color: #2196f3;
+    /* Blue */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fff;
+    padding: 0 2px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Accept Link in Badge */
+.variant-status-badge .accept-counter-offer {
+    margin-left: 8px;
+    color: #fff;
+    text-decoration: underline;
+    font-weight: bold;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.variant-status-badge .accept-counter-offer:hover {
+    color: #e3f2fd;
+}
+
+/* In Cart Status */
+.status-in-cart {
+    background-color: #2e7d32;
+    /* Dark Green */
+    color: #fff;
+}
+
+/* Unsubmitted Info Indicator */
+.unsubmitted-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2196f3;
+    /* Blue */
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    /* Changed from margin-left to margin-right for prefix */
+    vertical-align: middle;
+}/* Badge in Place Offers Button */
+.btn-place-offer .badge {
+    background-color: white;
+    color: #0071e3;
+    border-radius: 12px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
 }

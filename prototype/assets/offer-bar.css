@@ -1,0 +1,73 @@
+#offer-bar {
+    position: fixed;
+    bottom: 30px;
+    left: auto;
+    right: 30px;
+    transform: translateY(150%);
+    background-color: #333;
+    /* Dark background */
+    color: #fff;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    border-radius: 50px;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#offer-bar.visible {
+    transform: translateY(0);
+}
+
+.offer-bar-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.offer-badge-container {
+    display: flex;
+    align-items: center;
+    background-color: #0070B9;
+    border-radius: 20px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.offer-count-badge {
+    color: #fff;
+    padding: 6px 10px 6px 12px;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.offer-clear-btn {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    padding: 4px 8px 4px 4px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.offer-clear-btn:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-review-offer {
+    background: none;
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    padding: 0 5px;
+    cursor: pointer;
+}
+
+.btn-review-offer:hover {
+    text-decoration: underline;
+}

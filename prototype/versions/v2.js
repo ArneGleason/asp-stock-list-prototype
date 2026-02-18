@@ -35,10 +35,15 @@ $(function () {
                     description: variant.description || ((variant.color || '') + ' ' + (variant.network || '')).trim(),
                     grade: variant.grade,
                     warehouse: variant.warehouse,
-                    qty: 0,
-                    price: 0,
+                    qty: variant.offerQty || 0,
+                    price: variant.offerPrice || 0,
+                    submittedQty: variant.offerQty || 0, // Snapshot for comparison
+                    submittedPrice: variant.offerPrice || 0, // Snapshot for comparison
+                    counterQty: variant.counterQty || 0,
+                    counterPrice: variant.counterPrice || 0,
                     availableQty: variant.quantity,
-                    listPrice: variant.price
+                    listPrice: variant.price,
+                    offerStatus: variant.offerStatus
                 };
             }
             this.save();
@@ -70,10 +75,15 @@ $(function () {
                             description: ((v.color || '') + ' ' + (v.network || '')).trim(),
                             grade: v.grade || groupModel.get('grade'),
                             warehouse: v.warehouse || groupModel.get('warehouse'),
-                            qty: 0,
-                            price: 0,
+                            qty: v.offerQty || 0,
+                            price: v.offerPrice || 0,
+                            submittedQty: v.offerQty || 0,
+                            submittedPrice: v.offerPrice || 0,
+                            counterQty: v.counterQty || 0,
+                            counterPrice: v.counterPrice || 0,
                             availableQty: v.quantity,
-                            listPrice: v.price
+                            listPrice: v.price,
+                            offerStatus: v.offerStatus
                         };
                     }
                 });
@@ -118,7 +128,7 @@ $(function () {
         el: '#offer-bar',
 
         events: {
-            'click .btn-clear-offer': 'clearAll',
+            'click .offer-clear-btn': 'clearAll',
             'click .btn-review-offer': 'reviewOffer'
         },
 
@@ -131,12 +141,10 @@ $(function () {
         render: function () {
             const pinnedCount = Object.keys(OfferBuilderState.pinnedItems).length;
             const $countBadge = this.$('.offer-count-badge');
-            const $valueText = this.$('.offer-value-text');
 
             if (pinnedCount > 0) {
                 this.$el.addClass('visible');
                 $countBadge.text(pinnedCount + (pinnedCount === 1 ? ' Item' : ' Items'));
-                $valueText.text('Items pinned for offer review');
             } else {
                 this.$el.removeClass('visible');
             }
@@ -144,7 +152,6 @@ $(function () {
 
         clearAll: function (e) {
             e.preventDefault();
-            // Removed confirm for easier testing
             OfferBuilderState.clearAll();
         },
 
@@ -165,6 +172,9 @@ $(function () {
             'click .offer-item-remove': 'removeItem',
             'change .control-input': 'updateItemState',
             'keyup .control-input': 'updateItemState',
+            'click .control-input': 'autoSelect',
+            'focus .control-input': 'autoSelect',
+            'keydown .control-input': 'handleInputKeydown',
             'click .btn-generate-xlsx': 'generateXLSX',
             'click #drawer-menu-btn': 'toggleMenu',
             'click .btn-place-offer': 'placeOffers',
@@ -172,18 +182,31 @@ $(function () {
             'click .btn-group-action.add-all': 'addAllInGroup',
             'click .variant-menu-btn': 'toggleVariantMenu',
             'click .action-view-cart': 'viewInCart',
-            'click .action-cancel-offer': 'cancelOffer'
+            'click .action-view-cart': 'viewInCart',
+            'click .action-cancel-offer': 'cancelOffer',
+            'click .accept-counter-offer': 'showAcceptConfirmation',
+            'click .confirm-accept': 'acceptCounterOffer',
+            'click .cancel-accept': 'hideAcceptConfirmation'
         },
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
             $(document).on('click', (e) => {
-                if (!$(e.target).closest('.overflow-menu-container').length) {
+                const $target = $(e.target);
+
+                // Close overflow menus if clicked outside
+                if (!$target.closest('.overflow-menu-container').length) {
                     this.$('#drawer-overflow-menu').removeClass('open');
                 }
-                // Close variant menus
-                if (!$(e.target).closest('.variant-menu-container').length) {
+                if (!$target.closest('.variant-menu-container').length) {
                     this.$('.variant-overflow-menu').removeClass('open');
+                }
+
+                // Close drawer if clicked outside drawer AND outside the toggle bar
+                if (!$target.closest('#offer-drawer').length && !$target.closest('#offer-bar').length) {
+                    if (this.$el.hasClass('open')) {
+                        this.closeDrawer();
+                    }
                 }
             });
         },
@@ -201,15 +224,17 @@ $(function () {
                 return;
             }
 
-            const groups = _.groupBy(items, (item) => item.model || 'Other');
+            const groups = _.groupBy(items, (item) => {
+                return `${item.manufacturer || ''}|${item.model || ''}|${item.grade || ''}|${item.warehouse || ''}`;
+            });
             let totalValue = 0;
             let hasValidOffer = false;
 
-            Object.keys(groups).forEach(groupName => {
-                const groupItems = groups[groupName];
+            Object.keys(groups).forEach(groupKey => {
+                const groupItems = groups[groupKey];
                 const firstItem = groupItems[0];
 
-                // Aggregate unique attributes for badges
+                // Aggregate unique attributes for badges (should be single now due to grouping)
                 const uniqueGrades = new Set();
                 const uniqueWarehouses = new Set();
                 let capacity = '';
@@ -229,12 +254,11 @@ $(function () {
                     if (matches) capacity = matches[0];
                 }
 
-                console.log(`Rendering group ${groupName}: Grades=[${Array.from(uniqueGrades)}], Warehouses=[${Array.from(uniqueWarehouses)}]`);
-
                 const $groupEl = $(this.groupTemplate({
+                    groupKey: groupKey, // Pass composite key
                     groupId: firstItem.group_id || 'misc',
                     manufacturer: firstItem.manufacturer || '',
-                    model: groupName,
+                    model: firstItem.model || 'Other', // Display Name
                     capacity: capacity || '',
                     grades: Array.from(uniqueGrades),
                     warehouses: Array.from(uniqueWarehouses)
@@ -250,12 +274,31 @@ $(function () {
                     const offerPrice = item.price ? item.price : '';
                     if (offerPrice && offerPrice > 0) hasValidOffer = true;
 
-                    // Mock Status logic
-                    if (!item.status) {
-                        // 80% Draft, 20% Random other status for demo
-                        item.status = (Math.random() < 0.2)
-                            ? ['Offer Placed', 'Offer Accepted', 'Offer Rejected'][Math.floor(Math.random() * 3)]
-                            : 'Draft';
+                    // Use stored status or default to Draft
+                    item.status = item.offerStatus || 'Draft';
+
+                    // Determine if unsubmitted changes exist
+                    // 1. Draft: Always true (unless maybe empty? but user said "unsubmitted info", implies we want to submit it)
+                    //    Actually user said "unsubmitted offer info". If it's a blank draft, maybe not?
+                    //    But "Place Offers" button logic considers valid drafts.
+                    //    Let's say Draft is always "unsubmitted" until it becomes Pending.
+                    // 2. Others: Only if edited.
+
+                    let hasUnsubmitted = false;
+                    if (item.status === 'Draft' || !item.status) {
+                        // Only show if it has potentially valid data (Price > 0, Qty > 0)
+                        // Matches "Place Offer" button logic
+                        // User feedback: "still have 1 unit at $0... is not a valid offer value" = NO DOT.
+                        const p = parseFloat(offerPrice || 0);
+                        const q = parseInt(item.qty || 0);
+                        if (p > 0 && q > 0) {
+                            hasUnsubmitted = true;
+                        }
+                    } else if (item.status !== 'In Cart' && item.status !== 'Accepted') {
+                        // Check for edits from submitted snapshot
+                        if (item.qty !== (item.submittedQty || 0) || Math.abs((item.price || 0) - (item.submittedPrice || 0)) > 0.005) {
+                            hasUnsubmitted = true;
+                        }
                     }
 
                     const $variantEl = $(this.variantTemplate({
@@ -266,8 +309,13 @@ $(function () {
                         qty: item.qty,
                         availableQty: item.availableQty || 999, // Match stored property
                         price: offerPrice,
-                        listPrice: item.listPrice || 0, // Match stored property
+                        submittedQty: item.submittedQty || 0,
+                        submittedPrice: item.submittedPrice || 0,
+                        counterQty: item.counterQty || 0,
+                        counterPrice: item.counterPrice || 0,
+                        listPrice: (item.listPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), // Match stored property
                         status: item.status,
+                        hasUnsubmittedChanges: hasUnsubmitted,
                         totalPromise: (item.qty * (item.price || 0)) // We can just do logic in template or calc here. 
                         // Actually template doesn't have total param, so we need to add it or let JS init it.
                         // Let's add it via logic after append or just rely on render.
@@ -278,6 +326,8 @@ $(function () {
 
                     const initialTotal = item.qty * (item.price || 0);
                     $variantEl.find('.item-total').html(this.formatMoneyHTML(initialTotal));
+
+                    this.validateAndShowFeedback($variantEl);
 
                     $variantsContainer.append($variantEl);
 
@@ -291,7 +341,7 @@ $(function () {
 
             // Update total value based on ALL items
             this.updateTotalValue(items);
-            this.$('.btn-place-offer').prop('disabled', !hasValidOffer && items.length > 0);
+
         },
 
         closeDrawer: function () {
@@ -306,57 +356,90 @@ $(function () {
 
         removeGroup: function (e) {
             e.stopPropagation(); // Prevent bubbling
-            const groupName = $(e.currentTarget).closest('.offer-group').data('group-name');
-            console.log('Removing group:', groupName);
+            const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
+            console.log('Removing group:', groupKey);
 
-            if (!groupName) return;
+            if (!groupKey) return;
 
-            // Find all items with this model in state and remove them
+            const [mfr, model, grade, warehouse] = groupKey.split('|');
+
+            // Find all items matching this group key
             const items = Object.values(OfferBuilderState.pinnedItems);
             let removedCount = 0;
 
             items.forEach(item => {
-                // Loose comparison or exact match depending on data
-                if (item.model === groupName || (groupName === 'Other' && !item.model)) {
+                const itemKey = `${item.manufacturer || ''}|${item.model || ''}|${item.grade || ''}|${item.warehouse || ''}`;
+                if (itemKey === groupKey) {
                     delete OfferBuilderState.pinnedItems[item.sku];
                     removedCount++;
                 }
             });
 
-            console.log(`Removed ${removedCount} items from group ${groupName}`);
+            console.log(`Removed ${removedCount} items from group ${groupKey}`);
             OfferBuilderState.save();
         },
 
         addAllInGroup: function (e) {
             e.stopPropagation();
-            const groupName = $(e.currentTarget).closest('.offer-group').data('group-name');
-            console.log('Adding all for group:', groupName);
+            const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
+            console.log('Adding all for group:', groupKey);
 
             if (window.stockCollection) {
-                // Filter models that match the group name
-                const matchingModels = window.stockCollection.filter(model => model.get('model') === groupName);
+                const [mfr, modelName, grade, warehouse] = groupKey.split('|');
+
+                // Filter items that match the group attributes
+                // Note: stockCollection contains Group Models, not variants roughly. 
+                // Wait, stockCollection models HAVE variants. We need to find the correct group model and then add all its variants?
+                // The Stock List groups by Model+Grade+Warehouse basically (actually manufacturer|model|capacity|grade|warehouse).
+                // Our groupKey in offer drawer is manufacturer|model|grade|warehouse. 
+                // Let's find matches in the Mock Data structure.
 
                 let addedCount = 0;
-                matchingModels.forEach(model => {
-                    const attrs = model.toJSON();
-                    // Add if not already pinned
-                    if (!OfferBuilderState.pinnedItems[attrs.sku]) {
-                        // Ensure required fields are present
-                        if (!attrs.manufacturer) attrs.manufacturer = attrs.brand || ''; // fallback
 
-                        OfferBuilderState.pinnedItems[attrs.sku] = attrs;
-                        addedCount++;
+                window.stockCollection.each(groupModel => {
+                    const gm = groupModel.toJSON();
+                    // Check if group model matches our target attributes
+                    // Note: Mock data structure might be slightly different so loosen match if needed
+                    // But usually stock list groups ARE these attributes.
+                    if ((gm.model === modelName) &&
+                        (gm.grade === grade) &&
+                        (gm.warehouse === warehouse)) {
+
+                        // Add all variants in this group
+                        (gm.variants || []).forEach(v => {
+                            const attrs = {
+                                sku: v.sku,
+                                manufacturer: gm.manufacturer,
+                                model: gm.model,
+                                grade: gm.grade,
+                                warehouse: gm.warehouse,
+                                description: ((v.color || '') + ' ' + (v.network || '')).trim(),
+                                qty: v.offerQty || 0,
+                                price: v.offerPrice || 0,
+                                availableQty: v.quantity,
+                                listPrice: v.price,
+                                offerStatus: v.offerStatus
+                            };
+
+                            if (!OfferBuilderState.pinnedItems[attrs.sku]) {
+                                OfferBuilderState.pinnedItems[attrs.sku] = attrs;
+                                addedCount++;
+                            }
+                        });
                     }
                 });
-                console.log(`Added ${addedCount} items to group ${groupName}`);
+
+                console.log(`Added ${addedCount} items to group ${groupKey}`);
                 OfferBuilderState.save();
             } else {
                 console.error('StockCollection not found');
                 alert('Cannot access stock data to add items.');
             }
+
         },
 
         removeItem: function (e) {
+            e.stopPropagation(); // Prevent bubbling which might close things or trigger other clicks
             const sku = $(e.currentTarget).closest('.offer-variant-row').data('sku');
             if (sku) {
                 OfferBuilderState.togglePin({ sku: sku });
@@ -385,17 +468,28 @@ $(function () {
             }
 
             if (OfferBuilderState.pinnedItems[sku]) {
-                OfferBuilderState.pinnedItems[sku].qty = qty;
+                const itemData = OfferBuilderState.pinnedItems[sku];
+
+                const validated = this.validateAndShowFeedback(row);
+                if (validated) {
+                    if (validated.price !== undefined) price = validated.price;
+                    if (validated.qty !== undefined) qty = validated.qty;
+                }
+
+                this.checkEditedStatus(row, qty, price);
+
+                // --- End Validation Logic ---
+
+                itemData.qty = qty;
 
                 if (!isNaN(price) && price >= 0) {
-                    OfferBuilderState.pinnedItems[sku].price = price;
+                    itemData.price = price;
                 } else if (priceVal === '') {
-                    OfferBuilderState.pinnedItems[sku].price = null;
+                    itemData.price = null;
                 }
 
                 OfferBuilderState.save();
-                OfferBuilderState.save();
-                OfferBuilderState.triggerUpdate(); // Essential for total recalculation
+                this.updateFooterTotal(); // Targeted update instead
             }
 
             // Update local item total display
@@ -407,10 +501,35 @@ $(function () {
             }
         },
 
+        autoSelect: function (e) {
+            $(e.currentTarget).select();
+        },
+
+        handleInputKeydown: function (e) {
+            if (e.key === 'Tab' && !e.shiftKey) {
+                e.preventDefault();
+                const $inputs = this.$('.control-input:visible');
+                const currentIndex = $inputs.index(e.currentTarget);
+                const nextIndex = currentIndex + 1;
+
+                if (nextIndex < $inputs.length) {
+                    const $nextInput = $inputs.eq(nextIndex);
+                    $nextInput.focus();
+                    $nextInput.select();
+                }
+            }
+        },
+
         updateTotalDisplay: function () {
             // Deprecated by full re-render on save() to update line totals, 
             // but kept if we switch to lighter update
             this.render();
+        },
+
+        updateFooterTotal: function () {
+            const items = Object.values(OfferBuilderState.pinnedItems);
+            // Delegate to the main logic which handles button state too
+            this.updateTotalValue(items);
         },
 
         placeOffers: function () {
@@ -425,17 +544,14 @@ $(function () {
             // Wait, input is NOT inside .offer-item-list, it serves as header. So focus is safe.
         },
 
-        updateTotalValue: function (items) {
-            let total = 0;
-            items.forEach(item => {
-                const price = parseFloat(item.price || 0);
-                const qty = parseInt(item.qty || 0);
-                if (!isNaN(price) && !isNaN(qty)) {
-                    total += price * qty;
-                }
-            });
-            this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        },
+        // updateTotalValue: function (items) { ... } // Replaced by updateFooterTotal or kept as helper?
+        // We can keep updateTotalValue or just use updateFooterTotal. 
+        // Let's replace the existing updateTotalValue which was used in render()
+        // Wait, render() calls updateTotalValue(items). We should update render to use updateFooterTotal or keep it consistent.
+        // Actually, render passes items. Let's make updateFooterTotal get items from state if not passed, or just use state.
+        // The implementation above pulls from state directly.
+
+
 
         formatMoneyHTML: function (amount) {
             const val = parseFloat(amount || 0);
@@ -467,16 +583,270 @@ $(function () {
             }
         },
 
+        showAcceptConfirmation: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+
+            // Close other popovers
+            this.$('.accept-counter-offer').not(btn).popover('destroy');
+
+            // If this one is already open, toggling it by destroy might be what we want, or just return.
+            // But let's just destroy and re-create to be safe.
+            btn.popover('destroy');
+
+            const sku = btn.data('sku');
+            const itemData = OfferBuilderState.pinnedItems[sku];
+            const counterQty = itemData.counterQty || 0;
+            const counterPrice = itemData.counterPrice || 0;
+            const formattedPrice = counterPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            btn.popover({
+                html: true,
+                placement: 'bottom', // Bottom might be better for a link dropping down
+                trigger: 'manual',
+                container: '#offer-drawer',
+                content: `<div style="padding: 5px 10px;">
+                            <a href="#" class="confirm-accept" data-sku="${sku}" style="font-weight:bold; color:#2196f3; text-decoration:none;">
+                                Accept: ${counterQty} @ $${formattedPrice}
+                            </a>
+                          </div>`
+            });
+
+            btn.popover('show');
+
+            // Handle click outside to close
+            const closePopover = (ev) => {
+                // If click is NOT inside a popover and NOT on the button itself
+                if (!$(ev.target).closest('.popover').length && !$(ev.target).closest('.accept-counter-offer').length) {
+                    btn.popover('destroy');
+                    $(document).off('click', closePopover);
+                }
+            };
+
+            // Delay adding the listener slightly so the current click doesn't trigger it immediately? 
+            // In theory stopPropagation above handles the current click.
+            setTimeout(() => {
+                $(document).on('click', closePopover);
+            }, 0);
+        },
+
+        hideAcceptConfirmation: function (e) {
+            e.preventDefault();
+            // Destroy all to be safe and clean up DOM
+            this.$('.accept-counter-offer').popover('destroy');
+        },
+
+        acceptCounterOffer: function (e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent bubbling to document which closes drawer
+            // Since popover is now in this.$el, event delegation works.
+            // But we need to find the sku from the BUTTON, not the link (which is arguably hidden or not currentTarget)
+            const sku = $(e.currentTarget).data('sku');
+
+            if (OfferBuilderState.pinnedItems[sku]) {
+                // Update to counter values
+                itemData.qty = itemData.counterQty;
+                itemData.price = itemData.counterPrice;
+                itemData.offerStatus = 'In Cart';
+
+                // Update submitted snapshots so "Edited" doesn't show (clean slate)
+                itemData.submittedQty = itemData.counterQty;
+                itemData.submittedPrice = itemData.counterPrice;
+
+                OfferBuilderState.save();
+                this.render(); // Re-render to show updated state and remove popover
+            }
+
+            // Clean up any remaining popovers (rendering might have removed elements but not popover containers if detached)
+            $('.popover').remove();
+        },
+
         updateTotalValue: function (items) {
             let total = 0;
+            let enablePlaceOffer = false;
+            let editCount = 0;
+
             items.forEach(item => {
                 const price = parseFloat(item.price || 0);
                 const qty = parseInt(item.qty || 0);
+                const submittedQty = parseInt(item.submittedQty || 0);
+                const submittedPrice = parseFloat(item.submittedPrice || 0);
+                const status = item.offerStatus || 'Draft';
+
                 if (!isNaN(price) && !isNaN(qty)) {
                     total += price * qty;
                 }
+
+                // Logic for enabling button:
+                // 1. New Offer (Draft): Needs valid Qty > 0 and Price >= 0.
+                if (status === 'Draft' || !item.offerStatus) {
+                    // Start disabled until user enters a valid Price > 0
+                    if (qty > 0 && price > 0) {
+                        enablePlaceOffer = true;
+                        editCount++;
+                    }
+                }
+                // 2. Existing Offer (Pending, Countered, etc.): Only if changed.
+                // 3. Accepted/In Cart: Should not trigger "Place Offer" unless we want to allow re-submission?
+                //    Usually these are 'done'. So if status is 'In Cart', it doesn't contribute to enabling.
+                else if (status !== 'In Cart' && status !== 'Accepted') {
+                    // Check if values have changed from submitted snapshot
+                    if (qty !== submittedQty || Math.abs(price - submittedPrice) > 0.005) {
+                        enablePlaceOffer = true;
+                        editCount++;
+                    }
+                }
             });
+
             this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+            const $btn = this.$('.btn-place-offer');
+            $btn.prop('disabled', !enablePlaceOffer);
+
+            // Update badge
+            const $badge = $btn.find('.badge');
+            if (editCount > 0) {
+                $badge.text(editCount).show();
+            } else {
+                $badge.hide();
+            }
+        },
+
+        validateAndShowFeedback: function (row) {
+            const sku = row.data('sku');
+            if (!OfferBuilderState.pinnedItems[sku]) return;
+
+            const itemData = OfferBuilderState.pinnedItems[sku];
+            const qty = parseInt(row.find('.qty').val());
+            const priceVal = row.find('.price').val();
+            let price = parseFloat(priceVal);
+
+            // Quantity Validation
+            const availQty = itemData.availableQty || 999;
+            const qtyInput = row.find('.control-input.qty');
+            const qtyHelper = qtyInput.siblings('.helper-text');
+
+            if (qty > availQty) {
+                qtyInput.addClass('warning').attr('title', `Quantity exceeds available stock (${availQty})`);
+                qtyHelper.addClass('warning');
+            } else {
+                qtyInput.removeClass('warning').removeAttr('title');
+                qtyHelper.removeClass('warning');
+            }
+
+            // Price Validation & Feedback
+            // Price Validation & Feedback
+            const listPrice = itemData.listPrice || 0;
+            const priceInput = row.find('.control-input.price');
+            const feedbackBadge = row.find('.feedback-badge');
+            const feedbackCaption = row.find('.feedback-caption');
+            const listPriceCaption = row.find('.static-list-price');
+
+            // Reset classes
+            priceInput.removeClass('buying offer warning');
+            listPriceCaption.removeClass('buying');
+            feedbackBadge.removeClass('visible muted offer buying').text('');
+            feedbackCaption.removeClass('offer buying warning').text('');
+
+            if (listPrice > 0) {
+                if (price <= 0 || isNaN(price)) {
+                    // No Offer - clear dynamic feedback, static list price is shown
+                } else if (price > listPrice) {
+                    // Cap at List Price
+                    price = listPrice;
+                    priceInput.val(price.toFixed(2)); // Auto-correct input
+
+                    priceInput.addClass('buying');
+                    listPriceCaption.addClass('buying');
+                    feedbackBadge.addClass('visible buying').text('BUY AT LIST');
+                    feedbackCaption.text('');
+                } else if (price === listPrice) {
+                    // Exact Match
+                    priceInput.addClass('buying');
+                    listPriceCaption.addClass('buying');
+                    feedbackBadge.addClass('visible buying').text('BUY AT LIST');
+                    feedbackCaption.text('');
+                } else {
+                    // Offer In
+                    const diffPerUnit = listPrice - price;
+                    const totalSavings = diffPerUnit * qty;
+
+                    priceInput.addClass('offer'); // Green border
+                    feedbackCaption.addClass('offer').text(`Savings: $${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                }
+            }
+
+            return { price: price, qty: qty };
+        },
+
+        checkEditedStatus: function (row, currentQty, currentPrice) {
+            const qtyInput = row.find('.control-input.qty');
+            const priceInput = row.find('.control-input.price');
+            let hasChanges = false;
+
+
+            // Get original submitted values (if any)
+            const submittedQty = parseInt(qtyInput.data('submitted-val') || 0);
+            const submittedPrice = parseFloat(priceInput.data('submitted-val') || 0);
+
+            // If submitted values exist (meaning it's not a fresh Draft or unknown), compare
+            // Note: If submittedQty is 0, it might be a Draft. Drafts can be edited without "Edited" label?
+            // Requirement says: "WHEN Pending, Countered, Rejected, or Accepted... show Edited"
+            // So we only show if data-submitted-val > 0
+
+            if (submittedQty > 0) {
+                if (currentQty !== submittedQty) {
+                    qtyInput.siblings('.edited-label').show();
+                    qtyInput.addClass('edited');
+                    hasChanges = true;
+                } else {
+                    qtyInput.siblings('.edited-label').hide();
+                    qtyInput.removeClass('edited');
+                }
+            }
+
+            if (submittedPrice > 0) {
+                // Float comparison tolerance
+                if (Math.abs(currentPrice - submittedPrice) > 0.005) {
+                    priceInput.siblings('.edited-label').show();
+                    priceInput.addClass('edited');
+                    hasChanges = true;
+                } else {
+                    priceInput.siblings('.edited-label').hide();
+                    priceInput.removeClass('edited');
+                }
+            }
+
+            // Toggle blue dot
+            // Note: Draft items (submittedQty == 0) always have the dot via Main Render, 
+            // but we might need to toggle it here if we want to support "clearing" a draft?
+            // For now, let's assume Draft items ALWAYS have the dot, so we only toggle for non-drafts or based on "Edited" state?
+            // User requirement: "mark items... with unsubmitted offer info".
+            // If it's a Draft, it IS unsubmitted info.
+            // If it's Pending/Countered, only if CHANGED.
+
+            // Check status (we need data-status or something on the row, relying on submittedQty being > 0 implies non-draft usually)
+            // But let's check class? No, status isn't class on row.
+            // Use submittedQty: if 0, it's a Draft (or unsubmitted). If > 0, it's an existing offer.
+
+            const dot = row.find('.unsubmitted-dot');
+
+            if (submittedQty === 0) {
+                // Draft: Show dot ONLY if current values are valid (Price > 0, Qty > 0)
+                if (currentPrice > 0 && currentQty > 0) {
+                    dot.show();
+                } else {
+                    dot.hide();
+                }
+            } else {
+                // Existing: Show only if hasChanges
+                if (hasChanges) {
+                    dot.show();
+                } else {
+                    dot.hide();
+                }
+            }
         },
 
         generateXLSX: function () {
@@ -767,7 +1137,15 @@ $(function () {
             'click .btn-pin-variant': 'toggleVariantPin',
             'click .btn-buy': 'openBuyModal',
             'click .btn-offer': 'openOfferModal',
+            'click .btn-offer-status': 'handleOfferStatusClick',
             'click #toggle-all-details': 'toggleAllDetails'
+        },
+
+        handleOfferStatusClick: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const status = $(e.currentTarget).data('status');
+            alert(`Managing offers with status '${status}' is coming soon!`);
         },
 
         toggleGroupPin: function (e) {

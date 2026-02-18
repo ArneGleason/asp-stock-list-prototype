@@ -102,6 +102,40 @@
             if (variant) {
                 variant.quantity += qty;
             } else {
+                // Randomize offer status for demo purposes
+                let status = null;
+                let offerQty = 0;
+                let offerPrice = 0;
+                const rand = Math.random();
+
+                if (rand < 0.20) { // Increased probability to 20% for testing
+                    // Assign a status
+                    if (rand < 0.05) status = 'Pending';
+                    else if (rand < 0.10) status = 'Countered';
+                    else if (rand < 0.15) status = 'Accepted';
+                    else status = 'Rejected';
+
+                    // Generate realistic offer values
+                    offerQty = Math.floor(Math.random() * qty) + 1; // 1 to Available Qty
+
+                    // Offer price: List Price - ($5 to $25)
+                    const discount = 5 + (Math.random() * 20);
+                    offerPrice = Math.max(0, price - discount);
+                    offerPrice = Math.round(offerPrice * 100) / 100; // Round to 2 decimals
+
+                    // Logic for Countered status
+                    if (status === 'Countered') {
+                        // Counter Qty: Maybe same, maybe full avail
+                        counterQty = (Math.random() > 0.5) ? qty : offerQty;
+
+                        // Counter Price: Between Offer and List
+                        const spread = price - offerPrice;
+                        const counterBump = spread * (0.3 + Math.random() * 0.4); // 30-70% of the spread
+                        counterPrice = offerPrice + counterBump;
+                        counterPrice = Math.round(counterPrice * 100) / 100;
+                    }
+                }
+
                 groups[groupKey].variants.push({
                     sku: sku,
                     color: color,
@@ -109,6 +143,11 @@
                     quantity: qty,
                     price: price,
                     itemNumber: sku,
+                    offerStatus: status,
+                    offerQty: status ? offerQty : 0,
+                    offerPrice: status ? offerPrice : 0,
+                    counterQty: (status === 'Countered') ? counterQty : 0,
+                    counterPrice: (status === 'Countered') ? counterPrice : 0,
                     attributes: {
                         warehouse: wh,
                         color: color,
