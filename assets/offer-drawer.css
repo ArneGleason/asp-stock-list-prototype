@@ -525,19 +525,28 @@
     color: #383d41;
 }
 
-.status-offer-placed {
-    background: #cce5ff;
-    color: #004085;
+.status-pending {
+    background-color: #ff9800;
+    /* Orange */
+    color: #fff;
 }
 
-.status-offer-accepted {
-    background: #d4edda;
-    color: #155724;
+.status-countered {
+    background-color: #2196f3;
+    /* Blue */
+    color: #fff;
 }
 
-.status-offer-rejected {
-    background: #f8d7da;
-    color: #721c24;
+.status-accepted {
+    background-color: #4caf50;
+    /* Green */
+    color: #fff;
+}
+
+.status-rejected {
+    background-color: #f44336;
+    /* Red */
+    color: #fff;
 }
 
 

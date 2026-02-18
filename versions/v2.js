@@ -35,10 +35,11 @@ $(function () {
                     description: variant.description || ((variant.color || '') + ' ' + (variant.network || '')).trim(),
                     grade: variant.grade,
                     warehouse: variant.warehouse,
-                    qty: 0,
-                    price: 0,
+                    qty: variant.offerQty || 0,
+                    price: variant.offerPrice || 0,
                     availableQty: variant.quantity,
-                    listPrice: variant.price
+                    listPrice: variant.price,
+                    offerStatus: variant.offerStatus
                 };
             }
             this.save();
@@ -70,10 +71,11 @@ $(function () {
                             description: ((v.color || '') + ' ' + (v.network || '')).trim(),
                             grade: v.grade || groupModel.get('grade'),
                             warehouse: v.warehouse || groupModel.get('warehouse'),
-                            qty: 0,
-                            price: 0,
+                            qty: v.offerQty || 0,
+                            price: v.offerPrice || 0,
                             availableQty: v.quantity,
-                            listPrice: v.price
+                            listPrice: v.price,
+                            offerStatus: v.offerStatus
                         };
                     }
                 });
@@ -210,15 +212,17 @@ $(function () {
                 return;
             }
 
-            const groups = _.groupBy(items, (item) => item.model || 'Other');
+            const groups = _.groupBy(items, (item) => {
+                return `${item.manufacturer || ''}|${item.model || ''}|${item.grade || ''}|${item.warehouse || ''}`;
+            });
             let totalValue = 0;
             let hasValidOffer = false;
 
-            Object.keys(groups).forEach(groupName => {
-                const groupItems = groups[groupName];
+            Object.keys(groups).forEach(groupKey => {
+                const groupItems = groups[groupKey];
                 const firstItem = groupItems[0];
 
-                // Aggregate unique attributes for badges
+                // Aggregate unique attributes for badges (should be single now due to grouping)
                 const uniqueGrades = new Set();
                 const uniqueWarehouses = new Set();
                 let capacity = '';
@@ -238,12 +242,11 @@ $(function () {
                     if (matches) capacity = matches[0];
                 }
 
-                console.log(`Rendering group ${groupName}: Grades=[${Array.from(uniqueGrades)}], Warehouses=[${Array.from(uniqueWarehouses)}]`);
-
                 const $groupEl = $(this.groupTemplate({
+                    groupKey: groupKey, // Pass composite key
                     groupId: firstItem.group_id || 'misc',
                     manufacturer: firstItem.manufacturer || '',
-                    model: groupName,
+                    model: firstItem.model || 'Other', // Display Name
                     capacity: capacity || '',
                     grades: Array.from(uniqueGrades),
                     warehouses: Array.from(uniqueWarehouses)
@@ -259,13 +262,8 @@ $(function () {
                     const offerPrice = item.price ? item.price : '';
                     if (offerPrice && offerPrice > 0) hasValidOffer = true;
 
-                    // Mock Status logic
-                    if (!item.status) {
-                        // 80% Draft, 20% Random other status for demo
-                        item.status = (Math.random() < 0.2)
-                            ? ['Offer Placed', 'Offer Accepted', 'Offer Rejected'][Math.floor(Math.random() * 3)]
-                            : 'Draft';
-                    }
+                    // Use stored status or default to Draft
+                    item.status = item.offerStatus || 'Draft';
 
                     const $variantEl = $(this.variantTemplate({
                         sku: item.sku,
@@ -317,54 +315,86 @@ $(function () {
 
         removeGroup: function (e) {
             e.stopPropagation(); // Prevent bubbling
-            const groupName = $(e.currentTarget).closest('.offer-group').data('group-name');
-            console.log('Removing group:', groupName);
+            const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
+            console.log('Removing group:', groupKey);
 
-            if (!groupName) return;
+            if (!groupKey) return;
 
-            // Find all items with this model in state and remove them
+            const [mfr, model, grade, warehouse] = groupKey.split('|');
+
+            // Find all items matching this group key
             const items = Object.values(OfferBuilderState.pinnedItems);
             let removedCount = 0;
 
             items.forEach(item => {
-                // Loose comparison or exact match depending on data
-                if (item.model === groupName || (groupName === 'Other' && !item.model)) {
+                const itemKey = `${item.manufacturer || ''}|${item.model || ''}|${item.grade || ''}|${item.warehouse || ''}`;
+                if (itemKey === groupKey) {
                     delete OfferBuilderState.pinnedItems[item.sku];
                     removedCount++;
                 }
             });
 
-            console.log(`Removed ${removedCount} items from group ${groupName}`);
+            console.log(`Removed ${removedCount} items from group ${groupKey}`);
             OfferBuilderState.save();
         },
 
         addAllInGroup: function (e) {
             e.stopPropagation();
-            const groupName = $(e.currentTarget).closest('.offer-group').data('group-name');
-            console.log('Adding all for group:', groupName);
+            const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
+            console.log('Adding all for group:', groupKey);
 
             if (window.stockCollection) {
-                // Filter models that match the group name
-                const matchingModels = window.stockCollection.filter(model => model.get('model') === groupName);
+                const [mfr, modelName, grade, warehouse] = groupKey.split('|');
+
+                // Filter items that match the group attributes
+                // Note: stockCollection contains Group Models, not variants roughly. 
+                // Wait, stockCollection models HAVE variants. We need to find the correct group model and then add all its variants?
+                // The Stock List groups by Model+Grade+Warehouse basically (actually manufacturer|model|capacity|grade|warehouse).
+                // Our groupKey in offer drawer is manufacturer|model|grade|warehouse. 
+                // Let's find matches in the Mock Data structure.
 
                 let addedCount = 0;
-                matchingModels.forEach(model => {
-                    const attrs = model.toJSON();
-                    // Add if not already pinned
-                    if (!OfferBuilderState.pinnedItems[attrs.sku]) {
-                        // Ensure required fields are present
-                        if (!attrs.manufacturer) attrs.manufacturer = attrs.brand || ''; // fallback
 
-                        OfferBuilderState.pinnedItems[attrs.sku] = attrs;
-                        addedCount++;
+                window.stockCollection.each(groupModel => {
+                    const gm = groupModel.toJSON();
+                    // Check if group model matches our target attributes
+                    // Note: Mock data structure might be slightly different so loosen match if needed
+                    // But usually stock list groups ARE these attributes.
+                    if ((gm.model === modelName) &&
+                        (gm.grade === grade) &&
+                        (gm.warehouse === warehouse)) {
+
+                        // Add all variants in this group
+                        (gm.variants || []).forEach(v => {
+                            const attrs = {
+                                sku: v.sku,
+                                manufacturer: gm.manufacturer,
+                                model: gm.model,
+                                grade: gm.grade,
+                                warehouse: gm.warehouse,
+                                description: ((v.color || '') + ' ' + (v.network || '')).trim(),
+                                qty: v.offerQty || 0,
+                                price: v.offerPrice || 0,
+                                availableQty: v.quantity,
+                                listPrice: v.price,
+                                offerStatus: v.offerStatus
+                            };
+
+                            if (!OfferBuilderState.pinnedItems[attrs.sku]) {
+                                OfferBuilderState.pinnedItems[attrs.sku] = attrs;
+                                addedCount++;
+                            }
+                        });
                     }
                 });
-                console.log(`Added ${addedCount} items to group ${groupName}`);
+
+                console.log(`Added ${addedCount} items to group ${groupKey}`);
                 OfferBuilderState.save();
             } else {
                 console.error('StockCollection not found');
                 alert('Cannot access stock data to add items.');
             }
+
         },
 
         removeItem: function (e) {
@@ -888,7 +918,15 @@ $(function () {
             'click .btn-pin-variant': 'toggleVariantPin',
             'click .btn-buy': 'openBuyModal',
             'click .btn-offer': 'openOfferModal',
+            'click .btn-offer-status': 'handleOfferStatusClick',
             'click #toggle-all-details': 'toggleAllDetails'
+        },
+
+        handleOfferStatusClick: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const status = $(e.currentTarget).data('status');
+            alert(`Managing offers with status '${status}' is coming soon!`);
         },
 
         toggleGroupPin: function (e) {
