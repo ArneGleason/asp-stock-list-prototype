@@ -752,4 +752,23 @@
     font-weight: bold;
     min-width: 20px;
     text-align: center;
+}/* Drawer Backdrop */
+.drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    /* Dimmed background */
+    z-index: 1001;
+    /* Below drawer (1002) */
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.drawer-backdrop.visible {
+    display: block;
+    opacity: 1;
 }

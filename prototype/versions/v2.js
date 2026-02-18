@@ -157,7 +157,8 @@ $(function () {
 
         reviewOffer: function (e) {
             e.preventDefault();
-            $('.offer-drawer').addClass('open');
+            // Trigger global event to open drawer
+            Backbone.trigger('offerDrawer:open');
         }
     });
 
@@ -191,6 +192,13 @@ $(function () {
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
+            this.listenTo(Backbone, 'offerDrawer:open', this.openDrawer);
+
+            // Backdrop click handler
+            $('.drawer-backdrop').on('click', () => {
+                this.closeDrawer();
+            });
+
             $(document).on('click', (e) => {
                 const $target = $(e.target);
 
@@ -201,14 +209,14 @@ $(function () {
                 if (!$target.closest('.variant-menu-container').length) {
                     this.$('.variant-overflow-menu').removeClass('open');
                 }
-
-                // Close drawer if clicked outside drawer AND outside the toggle bar
-                if (!$target.closest('#offer-drawer').length && !$target.closest('#offer-bar').length) {
-                    if (this.$el.hasClass('open')) {
-                        this.closeDrawer();
-                    }
-                }
             });
+        },
+
+        openDrawer: function () {
+            this.$el.addClass('open');
+            $('.drawer-backdrop').addClass('visible');
+            // Disable body scroll if desired
+            $('body').css('overflow', 'hidden');
         },
 
         render: function () {
@@ -346,6 +354,8 @@ $(function () {
 
         closeDrawer: function () {
             this.$el.removeClass('open');
+            $('.drawer-backdrop').removeClass('visible');
+            $('body').css('overflow', '');
             this.$('#drawer-overflow-menu').removeClass('open');
         },
 
