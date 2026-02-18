@@ -162,6 +162,9 @@ $(function () {
             'click .offer-item-remove': 'removeItem',
             'change .control-input': 'updateItemState',
             'keyup .control-input': 'updateItemState',
+            'click .control-input': 'autoSelect',
+            'focus .control-input': 'autoSelect',
+            'keydown .control-input': 'handleInputKeydown',
             'click .btn-generate-xlsx': 'generateXLSX',
             'click #drawer-menu-btn': 'toggleMenu',
             'click .btn-place-offer': 'placeOffers',
@@ -272,7 +275,7 @@ $(function () {
                         qty: item.qty,
                         availableQty: item.availableQty || 999, // Match stored property
                         price: offerPrice,
-                        listPrice: item.listPrice || 0, // Match stored property
+                        listPrice: (item.listPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), // Match stored property
                         status: item.status,
                         totalPromise: (item.qty * (item.price || 0)) // We can just do logic in template or calc here. 
                         // Actually template doesn't have total param, so we need to add it or let JS init it.
@@ -284,6 +287,8 @@ $(function () {
 
                     const initialTotal = item.qty * (item.price || 0);
                     $variantEl.find('.item-total').html(this.formatMoneyHTML(initialTotal));
+
+                    this.validateAndShowFeedback($variantEl);
 
                     $variantsContainer.append($variantEl);
 
@@ -391,17 +396,26 @@ $(function () {
             }
 
             if (OfferBuilderState.pinnedItems[sku]) {
-                OfferBuilderState.pinnedItems[sku].qty = qty;
+                const itemData = OfferBuilderState.pinnedItems[sku];
+
+                this.validateAndShowFeedback(row);
+
+                // --- End Validation Logic ---
+
+                // --- End Validation Logic ---
+
+                itemData.qty = qty;
 
                 if (!isNaN(price) && price >= 0) {
-                    OfferBuilderState.pinnedItems[sku].price = price;
+                    itemData.price = price;
                 } else if (priceVal === '') {
-                    OfferBuilderState.pinnedItems[sku].price = null;
+                    itemData.price = null;
                 }
 
                 OfferBuilderState.save();
                 OfferBuilderState.save();
-                OfferBuilderState.triggerUpdate(); // Essential for total recalculation
+                // OfferBuilderState.triggerUpdate(); // REMOVED to prevent full re-render and focus loss
+                this.updateFooterTotal(); // Targeted update instead
             }
 
             // Update local item total display
@@ -413,10 +427,42 @@ $(function () {
             }
         },
 
+        autoSelect: function (e) {
+            $(e.currentTarget).select();
+        },
+
+        handleInputKeydown: function (e) {
+            if (e.key === 'Tab' && !e.shiftKey) {
+                e.preventDefault();
+                const $inputs = this.$('.control-input:visible');
+                const currentIndex = $inputs.index(e.currentTarget);
+                const nextIndex = currentIndex + 1;
+
+                if (nextIndex < $inputs.length) {
+                    const $nextInput = $inputs.eq(nextIndex);
+                    $nextInput.focus();
+                    $nextInput.select();
+                }
+            }
+        },
+
         updateTotalDisplay: function () {
             // Deprecated by full re-render on save() to update line totals, 
             // but kept if we switch to lighter update
             this.render();
+        },
+
+        updateFooterTotal: function () {
+            const items = Object.values(OfferBuilderState.pinnedItems);
+            let total = 0;
+            items.forEach(item => {
+                const price = parseFloat(item.price || 0);
+                const qty = parseInt(item.qty || 0);
+                if (!isNaN(price) && !isNaN(qty)) {
+                    total += price * qty;
+                }
+            });
+            this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         },
 
         placeOffers: function () {
@@ -431,7 +477,16 @@ $(function () {
             // Wait, input is NOT inside .offer-item-list, it serves as header. So focus is safe.
         },
 
+        // updateTotalValue: function (items) { ... } // Replaced by updateFooterTotal or kept as helper?
+        // We can keep updateTotalValue or just use updateFooterTotal. 
+        // Let's replace the existing updateTotalValue which was used in render()
+        // Wait, render() calls updateTotalValue(items). We should update render to use updateFooterTotal or keep it consistent.
+        // Actually, render passes items. Let's make updateFooterTotal get items from state if not passed, or just use state.
+        // The implementation above pulls from state directly.
+
         updateTotalValue: function (items) {
+            // Keep for render() compatibility if needed, or update render() to call this.updateFooterTotal()
+            // render() calls: this.updateTotalValue(items);
             let total = 0;
             items.forEach(item => {
                 const price = parseFloat(item.price || 0);
@@ -483,6 +538,66 @@ $(function () {
                 }
             });
             this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        },
+
+        validateAndShowFeedback: function (row) {
+            const sku = row.data('sku');
+            if (!OfferBuilderState.pinnedItems[sku]) return;
+
+            const itemData = OfferBuilderState.pinnedItems[sku];
+            const qty = parseInt(row.find('.qty').val());
+            const priceVal = row.find('.price').val();
+            const price = parseFloat(priceVal);
+
+            // Quantity Validation
+            const availQty = itemData.availableQty || 999;
+            const qtyInput = row.find('.control-input.qty');
+            const qtyHelper = qtyInput.siblings('.helper-text');
+
+            if (qty > availQty) {
+                qtyInput.addClass('warning').attr('title', `Quantity exceeds available stock (${availQty})`);
+                qtyHelper.addClass('warning');
+            } else {
+                qtyInput.removeClass('warning').removeAttr('title');
+                qtyHelper.removeClass('warning');
+            }
+
+            // Price Validation & Feedback
+            // Price Validation & Feedback
+            const listPrice = itemData.listPrice || 0;
+            const priceInput = row.find('.control-input.price');
+            const feedbackBadge = row.find('.feedback-badge');
+            const feedbackCaption = row.find('.feedback-caption');
+            const listPriceCaption = row.find('.static-list-price');
+
+            // Reset classes
+            priceInput.removeClass('buying offer warning');
+            listPriceCaption.removeClass('buying');
+            feedbackBadge.removeClass('visible muted offer buying').text('');
+            feedbackCaption.removeClass('offer buying warning').text('');
+
+            if (listPrice > 0) {
+                if (price <= 0 || isNaN(price)) {
+                    // No Offer - clear dynamic feedback, static list price is shown
+                } else if (price >= listPrice) {
+                    // Buy at List (Cap)
+                    // Note: We don't auto-correct value here on render/validate to avoid fighting user input,
+                    // but we do style it and cap it logic-wise if we were saving. 
+                    // For visual feedback, we just check against listPrice.
+
+                    priceInput.addClass('buying');
+                    listPriceCaption.addClass('buying');
+                    feedbackBadge.addClass('visible buying').text('BUY AT LIST');
+                    feedbackCaption.text('');
+                } else {
+                    // Offer In
+                    const diffPerUnit = listPrice - price;
+                    const totalSavings = diffPerUnit * qty;
+
+                    priceInput.addClass('offer'); // Green border
+                    feedbackCaption.addClass('offer').text(`Savings: $${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                }
+            }
         },
 
         generateXLSX: function () {

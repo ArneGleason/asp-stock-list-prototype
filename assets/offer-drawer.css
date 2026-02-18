@@ -278,6 +278,15 @@
     font-size: 13px;
     text-align: right;
     height: 32px;
+    /* Hide Spinners */
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.control-input::-webkit-outer-spin-button,
+.control-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .control-input.qty {
@@ -311,6 +320,100 @@
     bottom: -14px;
     right: 0;
     white-space: nowrap;
+}
+
+/* Price Feedback Area */
+.static-list-price {
+    font-size: 10px;
+    color: #999;
+    margin-top: 2px;
+}
+
+.control-input.warning {
+    border-color: #ff9800 !important;
+    /* Orange for warning */
+}
+
+.control-input.buying {
+    border-color: #0070B9 !important;
+    /* Blue for buying at list */
+}
+
+.control-input.offer {
+    border-color: #2e7d32 !important;
+}
+
+.helper-text.warning {
+    color: #ff9800 !important;
+}
+
+.helper-text.buying {
+    color: #0070B9 !important;
+}
+
+.helper-text.buying {
+    color: #0070B9 !important;
+}
+
+.helper-text.offer {
+    color: #2e7d32 !important;
+}
+
+.total-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    min-width: 80px;
+}
+
+.offer-feedback {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 0;
+    gap: 0;
+}
+
+.feedback-badge {
+    font-size: 9px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: none;
+    margin-bottom: 1px;
+    color: white;
+}
+
+.feedback-badge.visible {
+    display: inline-block;
+}
+
+.feedback-badge.muted {
+    background-color: #999;
+}
+
+.feedback-badge.offer {
+    background-color: #2e7d32;
+}
+
+.feedback-badge.buying {
+    background-color: #0070B9;
+}
+
+.feedback-caption {
+    font-size: 10px;
+    color: #666;
+    white-space: nowrap;
+}
+
+.feedback-caption.offer {
+    color: #2e7d32;
+}
+
+.feedback-caption.buying {
+    color: #0070B9;
 }
 
 .item-total {
