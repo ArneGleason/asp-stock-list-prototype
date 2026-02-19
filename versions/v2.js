@@ -323,9 +323,10 @@ $(function () {
             'click .action-view-cart': 'viewInCart',
             'click .action-view-cart': 'viewInCart',
             'click .action-cancel-offer': 'cancelOffer',
-            'click .accept-counter-offer': 'showAcceptConfirmation',
-            'click .confirm-accept': 'acceptCounterOffer',
-            'click .cancel-accept': 'hideAcceptConfirmation',
+            'click .add-to-cart-action': 'showAddToCartConfirmation',
+            'click .confirm-add-to-cart': 'addToCartAction',
+            'click .cancel-add-to-cart': 'hideAddToCartConfirmation',
+            'click .action-add-to-cart-menu': 'handleMenuAddToCart',
             'click .view-tab': 'switchView'
         },
 
@@ -904,6 +905,58 @@ $(function () {
             $('.popover').remove();
         },
 
+        handleMenuAddToCart: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Close the menu
+            this.$('.variant-overflow-menu').removeClass('open');
+
+            const btn = $(e.currentTarget);
+            // The menu item is inside the overflow menu which is inside .variant-menu-container inside .variant-offer-controls-row inside .offer-variant-row
+            // We need to find the variant row to get the SKU, OR we can attach SKU to the menu item in the template?
+            // Let's check the template. The template renders the menu item. We can't easily get SKU from `closest('.offer-variant-row')` 
+            // because the menu might be appended to body or positioned absolutely? 
+            // In this prototype, `.variant-overflow-menu` is inside `.variant-menu-container` which is inside `.variant-offer-controls-row`.
+            // So closest should work.
+            const row = btn.closest('.offer-variant-row');
+            const sku = row.data('sku');
+            const actionType = btn.data('action-type'); // 'list', 'counter', 'accepted'
+
+            if (OfferBuilderState.pinnedItems[sku]) {
+                const itemData = OfferBuilderState.pinnedItems[sku];
+
+                if (actionType === 'list') {
+                    // Set to List Price
+                    // User wants to add to cart at List Price (ignoring offer history? or resetting it?)
+                    // "Add to Cart" implies moving to "In Cart" status.
+                    itemData.qty = itemData.qty || 1; // Default to 1 if 0? Or keep current qty?
+                    // Let's keep current qty if > 0, else 1
+                    if (!itemData.qty) itemData.qty = 1;
+
+                    itemData.price = itemData.listPrice;
+                } else if (actionType === 'counter') {
+                    itemData.qty = itemData.counterQty;
+                    itemData.price = itemData.counterPrice;
+                } else if (actionType === 'accepted') {
+                    // Should be existing submitted values
+                    // But let's ensure we use them
+                    itemData.qty = itemData.submittedQty;
+                    itemData.price = itemData.submittedPrice;
+                }
+
+                // Update status
+                itemData.offerStatus = 'In Cart';
+
+                // Update snapshots to avoid "Edited" flag since we are committing to this state
+                itemData.submittedQty = itemData.qty;
+                itemData.submittedPrice = itemData.price;
+
+                OfferBuilderState.save();
+                this.render();
+            }
+        },
+
         updateTotalValue: function (items) {
             let total = 0;
             let enablePlaceOffer = false;
@@ -1015,7 +1068,7 @@ $(function () {
                     const totalSavings = diffPerUnit * qty;
 
                     priceInput.addClass('offer'); // Green border
-                    feedbackCaption.addClass('offer').text(`Savings: $${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                    feedbackCaption.addClass('offer').text(`$${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} off List`);
                 }
             }
 

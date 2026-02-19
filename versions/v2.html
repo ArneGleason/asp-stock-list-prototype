@@ -440,7 +440,12 @@
                     <% if (status === 'Countered') { %>
                         <span class="variant-status-badge status-countered" title="Counter Offer">
                             COUNTERED: <%= counterQty %> @ $<%= counterPrice.toFixed(2) %>
-                            <a href="#" class="accept-counter-offer action-link" data-sku="<%= sku %>">Accept</a>
+                            <a href="#" class="add-to-cart-action action-link" data-sku="<%= sku %>" data-action-type="counter">ADD TO CART</a>
+                        </span>
+                    <% } else if (status === 'Accepted') { %>
+                        <span class="variant-status-badge status-accepted">
+                            ACCEPTED: <%= submittedQty %> @ $<%= submittedPrice.toFixed(2) %>
+                            <a href="#" class="add-to-cart-action action-link" data-sku="<%= sku %>" data-action-type="accepted">ADD TO CART</a>
                         </span>
                     <% } else { %>
                         <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
@@ -490,9 +495,40 @@
                             <span class="material-icons">more_vert</span>
                         </button>
                         <div class="variant-overflow-menu">
-                            <div class="variant-menu-item action-view-cart">
-                                View in Cart
-                            </div>
+                            <% 
+                                var cartLabel = 'Add to Cart';
+                                var cartPrice = 0;
+                                var actionType = 'list'; // default to list price add
+
+                                if (status === 'Pending' || status === 'Rejected') {
+                                    cartLabel = 'Add to Cart @ $' + listPrice;
+                                    cartPrice = listPrice;
+                                    actionType = 'list';
+                                } else if (status === 'Countered') {
+                                    cartLabel = 'Add to Cart @ $' + counterPrice.toFixed(2);
+                                    cartPrice = counterPrice;
+                                    actionType = 'counter';
+                                } else if (status === 'Accepted') {
+                                    cartLabel = 'Add to Cart @ $' + submittedPrice.toFixed(2);
+                                    cartPrice = submittedPrice;
+                                    actionType = 'accepted';
+                                } else if (status === 'In Cart') {
+                                    cartLabel = 'View in Cart'; // Fallback or keep as is? User didn't specify In Cart. 
+                                    // Actually "View in Cart" implies it's already there. 
+                                    // User said "change View in Cart ... to Add to Cart ... when status is ...".
+                                    // If status is "In Cart", we probably keep "View in Cart".
+                                }
+                            %>
+
+                            <% if (status === 'In Cart') { %>
+                                <div class="variant-menu-item action-view-cart">
+                                    View in Cart
+                                </div>
+                            <% } else { %>
+                                <div class="variant-menu-item action-add-to-cart-menu" data-action-type="<%= actionType %>">
+                                    <%= cartLabel %>
+                                </div>
+                            <% } %>
                             <div class="variant-menu-item action-cancel-offer danger">
                                 Cancel Offer
                             </div>
