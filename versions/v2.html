@@ -371,6 +371,10 @@
                             <span class="material-icons">file_download</span>
                             Export to XLSX
                         </div>
+                        <div class="overflow-menu-item btn-reset-demo-data">
+                            <span class="material-icons">refresh</span>
+                            Reset Demo Data
+                        </div>
                     </div>
                 </div>
                 <button class="drawer-action-btn drawer-close-btn">
@@ -486,8 +490,8 @@
 
                 <!-- Actions -->
                 <% if (!status || status === 'Draft') { %>
-                    <button class="offer-item-remove-btn offer-item-remove" title="Remove Item">
-                        <span class="material-icons">delete_outline</span>
+                    <button class="offer-item-unpin-btn offer-item-unpin" title="Unpin Item" style="color: #0070B9;">
+                        <span class="material-icons">bookmark</span>
                     </button>
                 <% } else { %>
                     <div class="variant-menu-container">

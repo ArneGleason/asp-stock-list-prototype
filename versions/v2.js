@@ -308,13 +308,18 @@ $(function () {
 
         events: {
             'click .drawer-close-btn': 'closeDrawer',
-            'click .offer-item-remove': 'removeItem',
+            'click .drawer-close-btn': 'closeDrawer',
+            'click .offer-item-unpin': 'showUnpinConfirmation',
+            'click .confirm-unpin': 'confirmUnpin',
+            'click .cancel-unpin': 'hideUnpinConfirmation',
+            'change .control-input': 'updateItemState',
             'change .control-input': 'updateItemState',
             'keyup .control-input': 'updateItemState',
             'click .control-input': 'autoSelect',
             'focus .control-input': 'autoSelect',
             'keydown .control-input': 'handleInputKeydown',
             'click .btn-generate-xlsx': 'generateXLSX',
+            'click .btn-reset-demo-data': 'resetDemoData',
             'click #drawer-menu-btn': 'toggleMenu',
             'click .btn-place-offer': 'placeOffers',
             'click .btn-group-action.remove': 'removeGroup',
@@ -323,9 +328,7 @@ $(function () {
             'click .action-view-cart': 'viewInCart',
             'click .action-view-cart': 'viewInCart',
             'click .action-cancel-offer': 'cancelOffer',
-            'click .add-to-cart-action': 'showAddToCartConfirmation',
-            'click .confirm-add-to-cart': 'addToCartAction',
-            'click .cancel-add-to-cart': 'hideAddToCartConfirmation',
+            'click .add-to-cart-action': 'handleMenuAddToCart',
             'click .action-add-to-cart-menu': 'handleMenuAddToCart',
             'click .view-tab': 'switchView'
         },
@@ -636,12 +639,137 @@ $(function () {
 
         },
 
-        removeItem: function (e) {
-            e.stopPropagation(); // Prevent bubbling which might close things or trigger other clicks
-            const sku = $(e.currentTarget).closest('.offer-variant-row').data('sku');
+        resetDemoData: function (e) {
+            if (e) e.preventDefault();
+            this.$('#drawer-overflow-menu').removeClass('open');
+
+            if (confirm("Are you sure you want to reset all offer demo data? This will clear your current offers and generate new random statuses for items.")) {
+
+                // 1. Clear locally pinned items completely
+                OfferBuilderState.clearAll();
+
+                // 2. Reset the mock server data and get all generated offers
+                if (window.MockApi && window.MockApi.resetDemoData) {
+                    const allVariants = window.MockApi.resetDemoData();
+
+                    // Manually populate group details for the variants based on ALL_DATA
+                    // (The import method expects manufacturer, model, etc.)
+                    // Actually, MockApi's returned variants should probably have this info
+                    // Let's just pass them directly, importActiveOffers will save them.
+                    OfferBuilderState.importActiveOffers(allVariants);
+                }
+
+                // 3. Re-fetch stock data to update the UI paginated view
+                if (window.stockCollection) {
+                    window.stockCollection.fetch({ reset: true });
+                }
+            }
+        },
+
+        showUnpinConfirmation: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+
+            // Close other popovers
+            this.$('.offer-item-unpin').not(btn).popover('destroy');
+            btn.popover('destroy');
+
+            btn.popover({
+                html: true,
+                placement: 'bottom',
+                trigger: 'manual',
+                container: '#offer-drawer',
+                content: `<div style="padding: 5px; text-align: center;">
+                            <div style="margin-bottom: 8px; font-size: 13px; font-weight: 600;">Unpin this item?</div>
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <button class="btn btn-sm btn-default cancel-unpin">Cancel</button>
+                                <button class="btn btn-sm btn-primary confirm-unpin">Unpin</button>
+                            </div>
+                          </div>`
+            });
+
+            btn.popover('show');
+
+            const closePopover = (ev) => {
+                if (!$(ev.target).closest('.popover').length && !$(ev.target).closest('.offer-item-unpin').length) {
+                    btn.popover('destroy');
+                    $(document).off('click', closePopover);
+                }
+            };
+            setTimeout(() => { $(document).on('click', closePopover); }, 0);
+        },
+
+        hideUnpinConfirmation: function (e) {
+            e.preventDefault();
+            this.$('.offer-item-unpin').popover('destroy');
+        },
+
+        confirmUnpin: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            // The popover is attached to the button, but the button content is static HTML string in popover options?
+            // Wait, standard bootstrap popover content doesn't maintain reference to original button easily inside the content events unless we start searching.
+            // Actually, because we are using event delegation in Backbone View (`events`), `e.currentTarget` is the button inside the popover.
+            // BUT we need to know WHICH item to unpin. 
+            // The popover is detached from the row in generated HTML. 
+            // We can resolve this by:
+            // 1. Storing data on the popover content elements?
+            // 2. Or tracking the "active unpin button" in the view state?
+            // Let's go with finding the open popover's trigger? Hard.
+            // Easier: Attach data to the buttons in the popover HTML string when creating it.
+
+            // Re-visiting showUnpinConfirmation to inject SKU.
+            // We need to find the SKU from the clicked .offer-item-unpin button.
+            // But wait, `confirmUnpin` is called when clicking "Unpin" INSIDE the popover.
+            // We don't have reference to `btn` here directly.
+
+            // Let's modify showUnpinConfirmation to include data-sku in the confirm button.
+        },
+
+        // Re-implementing correctly below:
+
+        showUnpinConfirmation: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+            const sku = btn.closest('.offer-variant-row').data('sku');
+
+            this.$('.offer-item-unpin').not(btn).popover('destroy');
+            btn.popover('destroy');
+
+            btn.popover({
+                html: true,
+                placement: 'bottom',
+                trigger: 'manual',
+                container: '#offer-drawer',
+                content: `<div style="padding: 5px; text-align: center;">
+                            <button class="btn btn-sm btn-primary confirm-unpin" data-sku="${sku}" style="width: 100%;">UNPIN ITEM</button>
+                          </div>`
+            });
+
+            btn.popover('show');
+
+            const closePopover = (ev) => {
+                if (!$(ev.target).closest('.popover').length && !$(ev.target).closest('.offer-item-unpin').length) {
+                    btn.popover('destroy');
+                    $(document).off('click', closePopover);
+                }
+            };
+            setTimeout(() => { $(document).on('click', closePopover); }, 0);
+        },
+
+        confirmUnpin: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+            const sku = btn.data('sku');
+
             if (sku) {
                 OfferBuilderState.togglePin({ sku: sku });
             }
+
+            $('.popover').remove(); // Close all
         },
 
         updateItemState: function (e) {

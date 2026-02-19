@@ -494,7 +494,8 @@
     color: #d9534f;
 }
 
-.offer-item-remove-btn {
+.offer-item-remove-btn,
+.offer-item-unpin-btn {
     background: none;
     border: none;
     color: #999;
@@ -509,6 +510,16 @@
 .offer-item-remove-btn:hover {
     color: #d9534f;
     background: #fff5f5;
+}
+
+.offer-item-unpin-btn {
+    color: #0070B9;
+    /* Pinned color */
+}
+
+.offer-item-unpin-btn:hover {
+    background: #e3f2fd;
+    color: #005a94;
 }
 
 /* Status Badges */
