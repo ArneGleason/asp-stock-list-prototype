@@ -274,23 +274,7 @@
                     <span class="total-qty">Qty: <strong><%= quantity %></strong></span>
                 </div>
                 <div class="header-right">
-                    <% 
-                        // Calculate offer status counts
-                        var statusCounts = {};
-                        _.each(variants, function(v) {
-                            if (v.offerStatus) {
-                                statusCounts[v.offerStatus] = (statusCounts[v.offerStatus] || 0) + 1;
-                            }
-                        });
-                        var statuses = ['Pending', 'Countered', 'Accepted', 'Rejected'];
-                    %>
-                    <% _.each(statuses, function(status) { %>
-                        <% if (statusCounts[status]) { %>
-                            <span class="offer-status-group-summary <%= status.toLowerCase() %>">
-                                <%= status %>: <%= statusCounts[status] %>
-                            </span>
-                        <% } %>
-                    <% }); %>
+
 
                     <span class="price-range"><%= priceRange %></span>
                     <button class="btn btn-link btn-pin" data-id="<%= id %>" style="padding: 0; color: #8BA1A7; margin-left: 10px;">
@@ -315,9 +299,13 @@
                         </div>
                         <div class="variant-actions">
                             <span class="variant-price">$<%= variant.price.toFixed(2) %></span>
-                            <% if (variant.offerStatus) { %>
-                                <button class="btn btn-default btn-offer-status" data-status="<%= variant.offerStatus %>" style="min-width: 130px; font-weight: 600;">
-                                    <%= variant.offerStatus.toUpperCase() %>
+                            <% if (variant.offerStatus && variant.offerStatus !== 'Draft') { 
+                                // Map status to class
+                                var statusClass = 'status-' + variant.offerStatus.toLowerCase().replace(' ', '-');
+                                var qtyLabel = variant.submittedQty ? ': ' + variant.submittedQty : (variant.quantity ? ': ' + variant.quantity : '');
+                            %>
+                                <button class="btn <%= statusClass %> btn-offer-status" data-status="<%= variant.offerStatus %>">
+                                    <%= variant.offerStatus.toUpperCase() %><%= qtyLabel %>
                                 </button>
                             <% } else { %>
                                 <button class="btn btn-default btn-offer" data-id="<%= id %>" data-sku="<%= variant.sku %>">OFFER</button>
@@ -334,16 +322,30 @@
     </script>
 
     <!-- Offer Bar (Sticky Footer) -->
-    <div id="offer-bar">
-        <div class="offer-bar-content">
-            <div class="offer-badge-container">
-                <span class="offer-count-badge">0 Items</span>
-                <span class="material-icons offer-clear-btn" title="Clear All">close</span>
+    <!-- Sticky Offer Bar -->
+    <div id="offer-bar" class="offer-bar">
+        <div class="container-fluid">
+            <div class="offer-bar-content">
+                <span class="offer-bar-title">OFFERS</span>
+                <div class="offer-bar-actions">
+                    <button class="btn btn-dark btn-sm btn-view-pinned">
+                        Pinned <span class="badge badge-light pinned-count">0</span>
+                    </button>
+                    <button class="btn btn-dark btn-sm btn-view-active">
+                        Active <span class="badge badge-success active-count">0</span>
+                    </button>
+                    <div class="offer-bar-menu-container">
+                        <button class="btn btn-icon offer-bar-menu-btn">
+                            <span class="material-icons">more_vert</span>
+                        </button>
+                        <div class="offer-bar-menu">
+                            <div class="menu-item action-clear-pinned">
+                                <span class="material-icons">close</span> Clear Pinned
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button class="btn-review-offer">
-                Offer Worksheet <span class="material-icons"
-                    style="vertical-align: middle; margin-left: 5px; font-size: 18px;">grid_view</span>
-            </button>
         </div>
     </div>
 
@@ -354,6 +356,11 @@
                 <span class="material-icons">grid_view</span>
                 Offer Worksheet <span style="font-size: 10px; color: #ccc; margin-left: 5px;">v2.7</span>
             </div>
+            <div class="drawer-view-tabs">
+                <button class="view-tab active" data-view="pinned">Pinned <span
+                        class="badge tab-badge">0</span></button>
+                <button class="view-tab" data-view="active">Active <span class="badge tab-badge">0</span></button>
+            </div>
             <div class="drawer-actions">
                 <div class="overflow-menu-container">
                     <button class="drawer-action-btn" id="drawer-menu-btn">
@@ -363,6 +370,10 @@
                         <div class="overflow-menu-item btn-generate-xlsx">
                             <span class="material-icons">file_download</span>
                             Export to XLSX
+                        </div>
+                        <div class="overflow-menu-item btn-reset-demo-data">
+                            <span class="material-icons">refresh</span>
+                            Reset Demo Data
                         </div>
                     </div>
                 </div>
@@ -433,7 +444,12 @@
                     <% if (status === 'Countered') { %>
                         <span class="variant-status-badge status-countered" title="Counter Offer">
                             COUNTERED: <%= counterQty %> @ $<%= counterPrice.toFixed(2) %>
-                            <a href="#" class="accept-counter-offer action-link" data-sku="<%= sku %>">Accept</a>
+                            <a href="#" class="add-to-cart-action action-link" data-sku="<%= sku %>" data-action-type="counter">ADD TO CART</a>
+                        </span>
+                    <% } else if (status === 'Accepted') { %>
+                        <span class="variant-status-badge status-accepted">
+                            ACCEPTED: <%= submittedQty %> @ $<%= submittedPrice.toFixed(2) %>
+                            <a href="#" class="add-to-cart-action action-link" data-sku="<%= sku %>" data-action-type="accepted">ADD TO CART</a>
                         </span>
                     <% } else { %>
                         <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
@@ -474,8 +490,8 @@
 
                 <!-- Actions -->
                 <% if (!status || status === 'Draft') { %>
-                    <button class="offer-item-remove-btn offer-item-remove" title="Remove Item">
-                        <span class="material-icons">delete_outline</span>
+                    <button class="offer-item-unpin-btn offer-item-unpin" title="Unpin Item" style="color: #0070B9;">
+                        <span class="material-icons">bookmark</span>
                     </button>
                 <% } else { %>
                     <div class="variant-menu-container">
@@ -483,9 +499,40 @@
                             <span class="material-icons">more_vert</span>
                         </button>
                         <div class="variant-overflow-menu">
-                            <div class="variant-menu-item action-view-cart">
-                                View in Cart
-                            </div>
+                            <% 
+                                var cartLabel = 'Add to Cart';
+                                var cartPrice = 0;
+                                var actionType = 'list'; // default to list price add
+
+                                if (status === 'Pending' || status === 'Rejected') {
+                                    cartLabel = 'Add to Cart @ $' + listPrice;
+                                    cartPrice = listPrice;
+                                    actionType = 'list';
+                                } else if (status === 'Countered') {
+                                    cartLabel = 'Add to Cart @ $' + counterPrice.toFixed(2);
+                                    cartPrice = counterPrice;
+                                    actionType = 'counter';
+                                } else if (status === 'Accepted') {
+                                    cartLabel = 'Add to Cart @ $' + submittedPrice.toFixed(2);
+                                    cartPrice = submittedPrice;
+                                    actionType = 'accepted';
+                                } else if (status === 'In Cart') {
+                                    cartLabel = 'View in Cart'; // Fallback or keep as is? User didn't specify In Cart. 
+                                    // Actually "View in Cart" implies it's already there. 
+                                    // User said "change View in Cart ... to Add to Cart ... when status is ...".
+                                    // If status is "In Cart", we probably keep "View in Cart".
+                                }
+                            %>
+
+                            <% if (status === 'In Cart') { %>
+                                <div class="variant-menu-item action-view-cart">
+                                    View in Cart
+                                </div>
+                            <% } else { %>
+                                <div class="variant-menu-item action-add-to-cart-menu" data-action-type="<%= actionType %>">
+                                    <%= cartLabel %>
+                                </div>
+                            <% } %>
                             <div class="variant-menu-item action-cancel-offer danger">
                                 Cancel Offer
                             </div>

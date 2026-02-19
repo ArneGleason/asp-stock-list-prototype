@@ -292,6 +292,78 @@
                 data: pageData,
                 filter: facets
             };
+        },
+
+        resetDemoData: function () {
+            console.log("Mock API Request: Reset Demo Data");
+
+            // 1. Gather all variants and clear their existing statuses
+            const allVariants = [];
+            ALL_DATA.forEach(group => {
+                group.variants.forEach(variant => {
+                    variant.offerStatus = null;
+                    variant.offerQty = 0;
+                    variant.offerPrice = 0;
+                    variant.counterQty = 0;
+                    variant.counterPrice = 0;
+
+                    // Inject group properties needed by the UI
+                    variant.group_id = group.id;
+                    variant.model = group.model;
+                    variant.manufacturer = group.manufacturer;
+                    variant.grade = group.grade;
+                    variant.warehouse = group.warehouse;
+
+                    allVariants.push(variant);
+                });
+            });
+
+            // 2. Shuffle the variants to pick random 125
+            for (let i = allVariants.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allVariants[i], allVariants[j]] = [allVariants[j], allVariants[i]];
+            }
+
+            // 3. Take the first 125 and evenly distribute statuses
+            const numOffers = Math.min(125, allVariants.length);
+            const selectedVariants = allVariants.slice(0, numOffers);
+            const statuses = ['Pending', 'Countered', 'Accepted', 'Rejected'];
+
+            selectedVariants.forEach((variant, index) => {
+                const status = statuses[index % statuses.length]; // Round-robin to ensure equal distribution
+                let offerQty = 0;
+                let offerPrice = 0;
+                let counterQty = 0;
+                let counterPrice = 0;
+
+                // Generate realistic offer values
+                offerQty = Math.floor(Math.random() * variant.quantity) + 1; // 1 to Available Qty
+
+                // Offer price: List Price - ($5 to $25)
+                const discount = 5 + (Math.random() * 20);
+                offerPrice = Math.max(0, variant.price - discount);
+                offerPrice = Math.round(offerPrice * 100) / 100; // Round to 2 decimals
+
+                // Logic for Countered status
+                if (status === 'Countered') {
+                    // Counter Qty: Maybe same, maybe full avail
+                    counterQty = (Math.random() > 0.5) ? variant.quantity : offerQty;
+
+                    // Counter Price: Between Offer and List
+                    const spread = variant.price - offerPrice;
+                    const counterBump = spread * (0.3 + Math.random() * 0.4); // 30-70% of the spread
+                    counterPrice = offerPrice + counterBump;
+                    counterPrice = Math.round(counterPrice * 100) / 100;
+                }
+
+                variant.offerStatus = status;
+                variant.offerQty = offerQty;
+                variant.offerPrice = offerPrice;
+                variant.counterQty = counterQty;
+                variant.counterPrice = counterPrice;
+            });
+
+            return selectedVariants;
         }
     };
 
