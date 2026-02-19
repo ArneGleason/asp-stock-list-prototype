@@ -691,3 +691,128 @@
         gap: 0;
     }
 }
+
+/* Edited Label */
+.edited-label {
+    position: absolute;
+    top: -12px;
+    left: 0;
+    font-size: 9px;
+    font-weight: 700;
+    color: #2196f3;
+    /* Blue */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fff;
+    padding: 0 2px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Accept Link in Badge */
+.variant-status-badge .accept-counter-offer {
+    margin-left: 8px;
+    color: #fff;
+    text-decoration: underline;
+    font-weight: bold;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.variant-status-badge .accept-counter-offer:hover {
+    color: #e3f2fd;
+}
+
+/* In Cart Status */
+.status-in-cart {
+    background-color: #2e7d32;
+    /* Dark Green */
+    color: #fff;
+}
+
+/* Unsubmitted Info Indicator */
+.unsubmitted-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2196f3;
+    /* Blue */
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    /* Changed from margin-left to margin-right for prefix */
+    vertical-align: middle;
+}/* Badge in Place Offers Button */
+.btn-place-offer .badge {
+    background-color: white;
+    color: #0071e3;
+    border-radius: 12px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+}/* Drawer Backdrop */
+.drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    /* Dimmed background */
+    z-index: 1001;
+    /* Below drawer (1002) */
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.drawer-backdrop.visible {
+    display: block;
+    opacity: 1;
+}/* Drawer View Tabs */
+.drawer-view-tabs {
+    display: flex;
+    gap: 10px;
+    margin-left: 20px;
+    margin-right: auto;
+}
+
+.view-tab {
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.view-tab:hover {
+    color: #333;
+    background-color: #f0f0f0;
+    border-radius: 4px 4px 0 0;
+}
+
+.view-tab.active {
+    color: #0071e3;
+    border-bottom-color: #0071e3;
+    font-weight: 600;
+}/* Tab Badges */
+.view-tab .badge.tab-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    margin-left: 4px;
+    background-color: #e0e0e0;
+    color: #333;
+    border-radius: 10px;
+    vertical-align: middle;
+}
+
+.view-tab.active .badge.tab-badge {
+    background-color: #0071e3;
+    color: white;
+}

@@ -122,6 +122,18 @@
                     const discount = 5 + (Math.random() * 20);
                     offerPrice = Math.max(0, price - discount);
                     offerPrice = Math.round(offerPrice * 100) / 100; // Round to 2 decimals
+
+                    // Logic for Countered status
+                    if (status === 'Countered') {
+                        // Counter Qty: Maybe same, maybe full avail
+                        counterQty = (Math.random() > 0.5) ? qty : offerQty;
+
+                        // Counter Price: Between Offer and List
+                        const spread = price - offerPrice;
+                        const counterBump = spread * (0.3 + Math.random() * 0.4); // 30-70% of the spread
+                        counterPrice = offerPrice + counterBump;
+                        counterPrice = Math.round(counterPrice * 100) / 100;
+                    }
                 }
 
                 groups[groupKey].variants.push({
@@ -134,6 +146,8 @@
                     offerStatus: status,
                     offerQty: status ? offerQty : 0,
                     offerPrice: status ? offerPrice : 0,
+                    counterQty: (status === 'Countered') ? counterQty : 0,
+                    counterPrice: (status === 'Countered') ? counterPrice : 0,
                     attributes: {
                         warehouse: wh,
                         color: color,

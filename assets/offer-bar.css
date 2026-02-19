@@ -1,73 +1,150 @@
 #offer-bar {
     position: fixed;
     bottom: 30px;
-    left: auto;
-    right: 30px;
-    transform: translateY(150%);
+    left: 50%;
+    transform: translateX(-50%);
+    /* Centered */
     background-color: #333;
-    /* Dark background */
     color: #fff;
-    padding: 10px 15px;
+    padding: 8px 20px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     border-radius: 50px;
     z-index: 1000;
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-#offer-bar.visible {
-    transform: translateY(0);
+    min-width: 300px;
 }
 
 .offer-bar-content {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 20px;
+}
+
+.offer-bar-title {
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #ccc;
+}
+
+.offer-bar-actions {
+    display: flex;
     gap: 10px;
 }
 
-.offer-badge-container {
+.offer-bar-actions .btn {
+    border-radius: 20px;
+    padding: 6px 15px;
+    font-size: 13px;
+    font-weight: 600;
     display: flex;
     align-items: center;
-    background-color: #0070B9;
-    border-radius: 20px;
-    padding: 0;
-    overflow: hidden;
+    gap: 8px;
+    transition: all 0.2s ease;
 }
 
-.offer-count-badge {
+.btn-view-pinned {
+    background-color: #444;
+    border: 1px solid #555;
     color: #fff;
-    padding: 6px 10px 6px 12px;
-    font-weight: 700;
-    font-size: 13px;
 }
 
-.offer-clear-btn {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.7);
+.btn-view-pinned:hover {
+    background-color: #555;
+}
+
+.btn-view-active {
+    background-color: #444;
+    border: 1px solid #555;
+    color: #fff;
+}
+
+.btn-view-active:hover {
+    background-color: #555;
+}
+
+.offer-bar-actions .badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.offer-bar-actions .badge.pinned-count {
+    background-color: #666;
+    color: #fff;
+}
+
+.offer-bar-actions .badge.active-count {
+    background-color: #28a745;
+    color: #fff;
+}/* ... existing styles ... */
+
+.offer-bar-menu-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.offer-bar-menu-btn {
+    background: none;
+    border: none;
+    color: #ccc;
     cursor: pointer;
-    padding: 4px 8px 4px 4px;
-    border-left: 1px solid rgba(255, 255, 255, 0.2);
-    transition: color 0.2s, background-color 0.2s;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.offer-clear-btn:hover {
+.offer-bar-menu-btn:hover,
+.offer-bar-menu-container.open .offer-bar-menu-btn {
+    background-color: rgba(255, 255, 255, 0.1);
     color: #fff;
+}
+
+.offer-bar-menu {
+    position: absolute;
+    bottom: 100%;
+    /* Opens upwards */
+    right: 0;
+    margin-bottom: 10px;
+    background-color: #333;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    padding: 5px 0;
+    min-width: 160px;
+    display: none;
+    /* Hidden by default */
+    z-index: 1001;
+}
+
+.offer-bar-menu-container.open .offer-bar-menu {
+    display: block;
+}
+
+.menu-item {
+    padding: 8px 15px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.2s;
+}
+
+.menu-item:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-.btn-review-offer {
-    background: none;
-    border: none;
-    color: #fff;
-    font-weight: 600;
-    font-size: 14px;
-    text-transform: uppercase;
-    padding: 0 5px;
-    cursor: pointer;
-}
-
-.btn-review-offer:hover {
-    text-decoration: underline;
+.menu-item .material-icons {
+    font-size: 16px;
+    color: #aaa;
 }

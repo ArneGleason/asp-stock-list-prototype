@@ -17,6 +17,12 @@ $(function () {
             const stored = localStorage.getItem('offerBuilderState');
             if (stored) {
                 this.pinnedItems = JSON.parse(stored);
+                // Migration: Ensure all items have isPinned property (legacy support)
+                Object.values(this.pinnedItems).forEach(item => {
+                    if (item.isPinned === undefined) {
+                        item.isPinned = true;
+                    }
+                });
             }
             this.triggerUpdate();
         },
@@ -24,9 +30,21 @@ $(function () {
         // Toggle a specific variant
         togglePin: function (variant) {
             const sku = variant.sku;
+
             if (this.pinnedItems[sku]) {
-                delete this.pinnedItems[sku];
+                // Item exists. Toggle its pinned state.
+                const item = this.pinnedItems[sku];
+                if (item.isPinned) {
+                    item.isPinned = false;
+                    // If it's just a draft (not sent), we can remove it entirely when unpinned
+                    if (!item.offerStatus || item.offerStatus === 'Draft') {
+                        delete this.pinnedItems[sku];
+                    }
+                } else {
+                    item.isPinned = true;
+                }
             } else {
+                // New item. Create it as pinned.
                 this.pinnedItems[sku] = {
                     sku: variant.sku,
                     group_id: variant.group_id,
@@ -37,9 +55,14 @@ $(function () {
                     warehouse: variant.warehouse,
                     qty: variant.offerQty || 0,
                     price: variant.offerPrice || 0,
+                    submittedQty: variant.offerQty || 0, // Snapshot for comparison
+                    submittedPrice: variant.offerPrice || 0, // Snapshot for comparison
+                    counterQty: variant.counterQty || 0,
+                    counterPrice: variant.counterPrice || 0,
                     availableQty: variant.quantity,
                     listPrice: variant.price,
-                    offerStatus: variant.offerStatus
+                    offerStatus: variant.offerStatus,
+                    isPinned: true // Default to true for new pins
                 };
             }
             this.save();
@@ -51,17 +74,32 @@ $(function () {
             const variants = groupModel.get('variants') || [];
             const groupId = groupModel.id;
 
-            // Check if all are currently pinned
-            const allPinned = variants.every(v => this.pinnedItems[v.sku]);
+            // Filter for pinnable variants (Draft or no status)
+            // Post-draft statuses (Pending, Accepted, etc) should be ignored by group pin
+            const pinnableVariants = variants.filter(v => !v.offerStatus || v.offerStatus === 'Draft');
+
+            if (pinnableVariants.length === 0) {
+                // Nothing to toggle (all are locked/post-draft)
+                return;
+            }
+
+            // Check if all pinnable are currently pinned
+            const allPinned = pinnableVariants.every(v => this.pinnedItems[v.sku] && this.pinnedItems[v.sku].isPinned);
 
             if (allPinned) {
-                // Unpin all
-                variants.forEach(v => {
-                    delete this.pinnedItems[v.sku];
+                // Unpin all pinnable
+                pinnableVariants.forEach(v => {
+                    if (this.pinnedItems[v.sku]) {
+                        const item = this.pinnedItems[v.sku];
+                        item.isPinned = false;
+                        if (!item.offerStatus || item.offerStatus === 'Draft') {
+                            delete this.pinnedItems[v.sku];
+                        }
+                    }
                 });
             } else {
-                // Pin all (that aren't already pinned)
-                variants.forEach(v => {
+                // Pin all pinnable (that aren't already pinned)
+                pinnableVariants.forEach(v => {
                     if (!this.pinnedItems[v.sku]) {
                         this.pinnedItems[v.sku] = {
                             sku: v.sku,
@@ -73,10 +111,18 @@ $(function () {
                             warehouse: v.warehouse || groupModel.get('warehouse'),
                             qty: v.offerQty || 0,
                             price: v.offerPrice || 0,
+                            submittedQty: v.offerQty || 0,
+                            submittedPrice: v.offerPrice || 0,
+                            counterQty: v.counterQty || 0,
+                            counterPrice: v.counterPrice || 0,
                             availableQty: v.quantity,
                             listPrice: v.price,
-                            offerStatus: v.offerStatus
+                            offerStatus: v.offerStatus,
+                            isPinned: true
                         };
+                    } else {
+                        // If it exists but is unpinned (active offer), set isPinned = true
+                        this.pinnedItems[v.sku].isPinned = true;
                     }
                 });
             }
@@ -85,7 +131,8 @@ $(function () {
         },
 
         isPinned: function (sku) {
-            return !!this.pinnedItems[sku];
+            // It's checked if it exists AND is pinned
+            return this.pinnedItems[sku] && this.pinnedItems[sku].isPinned;
         },
 
         // Returns: 'all', 'some', 'none'
@@ -93,9 +140,14 @@ $(function () {
             const variants = groupModel.get('variants') || [];
             if (variants.length === 0) return 'none'; // Should not happen
 
-            const pinnedCount = variants.filter(v => this.pinnedItems[v.sku]).length;
+            // Filter for pinnable variants only
+            const pinnableVariants = variants.filter(v => !v.offerStatus || v.offerStatus === 'Draft');
 
-            if (pinnedCount === variants.length) return 'all';
+            if (pinnableVariants.length === 0) return 'none';
+
+            const pinnedCount = pinnableVariants.filter(v => this.pinnedItems[v.sku] && this.pinnedItems[v.sku].isPinned).length;
+
+            if (pinnedCount === pinnableVariants.length) return 'all';
             if (pinnedCount > 0) return 'some';
             return 'none';
         },
@@ -112,6 +164,53 @@ $(function () {
 
         triggerUpdate: function () {
             Backbone.trigger('offerBuilder:update');
+        },
+
+        // Import active offers from the stock collection
+        importActiveOffers: function (variants) {
+            let addedCount = 0;
+            variants.forEach(v => {
+                // If it has an active status (not empty, not Draft)
+                // Normalize status check: ensure it matches what mock data produces ('Pending', 'Countered', 'Accepted', 'Rejected', 'In Cart')
+                if (v.offerStatus && v.offerStatus !== 'Draft') {
+                    // Normalize submitted values if missing (assume they match current if active)
+                    const submittedQty = v.submittedQty !== undefined ? v.submittedQty : (v.offerQty || 0);
+                    const submittedPrice = v.submittedPrice !== undefined ? v.submittedPrice : (v.offerPrice || 0);
+
+                    // Start tracking it if not already tracked
+                    if (!this.pinnedItems[v.sku]) {
+                        this.pinnedItems[v.sku] = {
+                            sku: v.sku,
+                            group_id: v.group_id, // Ensure this is available on variant
+                            model: v.model,
+                            manufacturer: v.manufacturer,
+                            description: v.description || ((v.color || '') + ' ' + (v.network || '')).trim(),
+                            grade: v.grade,
+                            warehouse: v.warehouse,
+                            qty: v.offerQty || 0,
+                            price: v.offerPrice || 0,
+                            submittedQty: submittedQty,
+                            submittedPrice: submittedPrice,
+                            counterQty: v.counterQty || 0,
+                            counterPrice: v.counterPrice || 0,
+                            availableQty: v.quantity,
+                            listPrice: v.price,
+                            offerStatus: v.offerStatus,
+                            isPinned: false // Important: It is active but NOT selected by user
+                        };
+                        addedCount++;
+                    } else {
+                        // Optional: Update status if exists? 
+                        // For now, let's assume local state takes precedence if it exists.
+                    }
+                }
+            });
+
+            if (addedCount > 0) {
+                console.log(`Imported ${addedCount} active offers from stock data.`);
+                this.save();
+                this.triggerUpdate();
+            }
         }
     };
 
@@ -120,36 +219,84 @@ $(function () {
         el: '#offer-bar',
 
         events: {
-            'click .offer-clear-btn': 'clearAll',
-            'click .btn-review-offer': 'reviewOffer'
+            'click .btn-view-pinned': 'openPinnedView',
+            'click .btn-view-active': 'openActiveView',
+            'click .offer-bar-menu-btn': 'toggleMenu',
+            'click .action-clear-pinned': 'clearPinned'
         },
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
+
+            // Close menu when clicking outside
+            $(document).on('click', (e) => {
+                if (!this.$(e.target).closest('.offer-bar-menu-container').length) {
+                    this.$('.offer-bar-menu-container').removeClass('open');
+                }
+            });
+
             // Initial render
             this.render();
         },
 
         render: function () {
-            const pinnedCount = Object.keys(OfferBuilderState.pinnedItems).length;
-            const $countBadge = this.$('.offer-count-badge');
+            const allItems = Object.values(OfferBuilderState.pinnedItems);
 
-            if (pinnedCount > 0) {
+            // Count Pinned
+            const pinnedCount = allItems.filter(item => item.isPinned).length;
+
+            // Count Active (Post-Draft)
+            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
+
+            console.log('Bar Render: Pinned=', pinnedCount, 'Active=', activeCount);
+
+            // Update Badge Text
+            this.$('.pinned-count').text(pinnedCount);
+            this.$('.active-count').text(activeCount);
+
+            if (pinnedCount > 0 || activeCount > 0) {
                 this.$el.addClass('visible');
-                $countBadge.text(pinnedCount + (pinnedCount === 1 ? ' Item' : ' Items'));
             } else {
                 this.$el.removeClass('visible');
             }
         },
 
-        clearAll: function (e) {
+        openPinnedView: function (e) {
             e.preventDefault();
-            OfferBuilderState.clearAll();
+            Backbone.trigger('offerDrawer:open', 'pinned');
         },
 
-        reviewOffer: function (e) {
+        openActiveView: function (e) {
             e.preventDefault();
-            $('.offer-drawer').addClass('open');
+            Backbone.trigger('offerDrawer:open', 'active');
+        },
+
+        toggleMenu: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.$('.offer-bar-menu-container').toggleClass('open');
+        },
+
+        clearPinned: function (e) {
+            e.preventDefault();
+            // Close menu
+            this.$('.offer-bar-menu-container').removeClass('open');
+
+            // Unpin all logic...
+            const items = OfferBuilderState.pinnedItems;
+            Object.keys(items).forEach(sku => {
+                const item = items[sku];
+                if (item.isPinned) {
+                    item.isPinned = false;
+                    // If it's just a draft (not sent), we can remove it entirely when unpinned
+                    if (!item.offerStatus || item.offerStatus === 'Draft') {
+                        delete items[sku];
+                    }
+                }
+            });
+
+            OfferBuilderState.save();
+            OfferBuilderState.triggerUpdate();
         }
     });
 
@@ -174,11 +321,25 @@ $(function () {
             'click .btn-group-action.add-all': 'addAllInGroup',
             'click .variant-menu-btn': 'toggleVariantMenu',
             'click .action-view-cart': 'viewInCart',
-            'click .action-cancel-offer': 'cancelOffer'
+            'click .action-view-cart': 'viewInCart',
+            'click .action-cancel-offer': 'cancelOffer',
+            'click .accept-counter-offer': 'showAcceptConfirmation',
+            'click .confirm-accept': 'acceptCounterOffer',
+            'click .cancel-accept': 'hideAcceptConfirmation',
+            'click .view-tab': 'switchView'
         },
+
+        viewMode: 'pinned', // 'pinned' (was selected) or 'active'
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
+            this.listenTo(Backbone, 'offerDrawer:open', this.openDrawer);
+
+            // Backdrop click handler
+            $('.drawer-backdrop').on('click', () => {
+                this.closeDrawer();
+            });
+
             $(document).on('click', (e) => {
                 const $target = $(e.target);
 
@@ -189,24 +350,70 @@ $(function () {
                 if (!$target.closest('.variant-menu-container').length) {
                     this.$('.variant-overflow-menu').removeClass('open');
                 }
-
-                // Close drawer if clicked outside drawer AND outside the toggle bar
-                if (!$target.closest('#offer-drawer').length && !$target.closest('#offer-bar').length) {
-                    if (this.$el.hasClass('open')) {
-                        this.closeDrawer();
-                    }
-                }
             });
+        },
+
+        switchView: function (e) {
+            const btn = $(e.currentTarget);
+            const view = btn.data('view');
+            if (view === this.viewMode) return;
+
+            this.viewMode = view;
+            // Update tabs UI
+            this.$('.view-tab').removeClass('active');
+            btn.addClass('active');
+
+            this.render();
+        },
+
+        openDrawer: function (viewMode) {
+            this.$el.addClass('open');
+            $('.drawer-backdrop').addClass('visible');
+            $('body').css('overflow', 'hidden');
+
+            if (viewMode) {
+                this.viewMode = viewMode;
+                // Update tabs UI to match
+                this.$('.view-tab').removeClass('active');
+                this.$(`.view-tab[data-view="${viewMode}"]`).addClass('active');
+            }
+
+            // Re-render to ensure view is consistent
+            this.render();
         },
 
         render: function () {
             const listContainer = this.$('.offer-item-list');
             listContainer.empty();
 
-            const items = Object.values(OfferBuilderState.pinnedItems);
+            // Get all items
+            const allItems = Object.values(OfferBuilderState.pinnedItems);
+
+            // Calculate Counts for Tabs
+            const pinnedCount = allItems.filter(item => item.isPinned).length;
+            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
+
+            console.log('Drawer Render: Pinned=', pinnedCount, 'Active=', activeCount);
+
+            // Update Tab Badges
+            this.$('.view-tab[data-view="pinned"] .badge').text(pinnedCount);
+            this.$('.view-tab[data-view="active"] .badge').text(activeCount);
+
+            // Filter based on viewMode
+            let items = [];
+            if (this.viewMode === 'pinned') {
+                // Show pinned items
+                items = allItems.filter(item => item.isPinned);
+            } else if (this.viewMode === 'active') {
+                // Show items with active status (not Draft)
+                items = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft');
+            }
 
             if (items.length === 0) {
-                listContainer.html('<div class="text-center text-muted" style="padding: 20px;">No items selected.</div>');
+                const emptyMsg = this.viewMode === 'pinned'
+                    ? 'No pinned items.'
+                    : 'No active offers.';
+                listContainer.html(`<div class="text-center text-muted" style="padding: 20px;">${emptyMsg}</div>`);
                 this.$('.offer-total-amount').text('$0.00');
                 this.$('.btn-place-offer').prop('disabled', true);
                 return;
@@ -265,6 +472,30 @@ $(function () {
                     // Use stored status or default to Draft
                     item.status = item.offerStatus || 'Draft';
 
+                    // Determine if unsubmitted changes exist
+                    // 1. Draft: Always true (unless maybe empty? but user said "unsubmitted info", implies we want to submit it)
+                    //    Actually user said "unsubmitted offer info". If it's a blank draft, maybe not?
+                    //    But "Place Offers" button logic considers valid drafts.
+                    //    Let's say Draft is always "unsubmitted" until it becomes Pending.
+                    // 2. Others: Only if edited.
+
+                    let hasUnsubmitted = false;
+                    if (item.status === 'Draft' || !item.status) {
+                        // Only show if it has potentially valid data (Price > 0, Qty > 0)
+                        // Matches "Place Offer" button logic
+                        // User feedback: "still have 1 unit at $0... is not a valid offer value" = NO DOT.
+                        const p = parseFloat(offerPrice || 0);
+                        const q = parseInt(item.qty || 0);
+                        if (p > 0 && q > 0) {
+                            hasUnsubmitted = true;
+                        }
+                    } else if (item.status !== 'In Cart' && item.status !== 'Accepted') {
+                        // Check for edits from submitted snapshot
+                        if (item.qty !== (item.submittedQty || 0) || Math.abs((item.price || 0) - (item.submittedPrice || 0)) > 0.005) {
+                            hasUnsubmitted = true;
+                        }
+                    }
+
                     const $variantEl = $(this.variantTemplate({
                         sku: item.sku,
                         model: item.model,
@@ -273,8 +504,13 @@ $(function () {
                         qty: item.qty,
                         availableQty: item.availableQty || 999, // Match stored property
                         price: offerPrice,
+                        submittedQty: item.submittedQty || 0,
+                        submittedPrice: item.submittedPrice || 0,
+                        counterQty: item.counterQty || 0,
+                        counterPrice: item.counterPrice || 0,
                         listPrice: (item.listPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), // Match stored property
                         status: item.status,
+                        hasUnsubmittedChanges: hasUnsubmitted,
                         totalPromise: (item.qty * (item.price || 0)) // We can just do logic in template or calc here. 
                         // Actually template doesn't have total param, so we need to add it or let JS init it.
                         // Let's add it via logic after append or just rely on render.
@@ -300,11 +536,13 @@ $(function () {
 
             // Update total value based on ALL items
             this.updateTotalValue(items);
-            this.$('.btn-place-offer').prop('disabled', !hasValidOffer && items.length > 0);
+
         },
 
         closeDrawer: function () {
             this.$el.removeClass('open');
+            $('.drawer-backdrop').removeClass('visible');
+            $('body').css('overflow', '');
             this.$('#drawer-overflow-menu').removeClass('open');
         },
 
@@ -398,6 +636,7 @@ $(function () {
         },
 
         removeItem: function (e) {
+            e.stopPropagation(); // Prevent bubbling which might close things or trigger other clicks
             const sku = $(e.currentTarget).closest('.offer-variant-row').data('sku');
             if (sku) {
                 OfferBuilderState.togglePin({ sku: sku });
@@ -428,9 +667,13 @@ $(function () {
             if (OfferBuilderState.pinnedItems[sku]) {
                 const itemData = OfferBuilderState.pinnedItems[sku];
 
-                this.validateAndShowFeedback(row);
+                const validated = this.validateAndShowFeedback(row);
+                if (validated) {
+                    if (validated.price !== undefined) price = validated.price;
+                    if (validated.qty !== undefined) qty = validated.qty;
+                }
 
-                // --- End Validation Logic ---
+                this.checkEditedStatus(row, qty, price);
 
                 // --- End Validation Logic ---
 
@@ -443,8 +686,6 @@ $(function () {
                 }
 
                 OfferBuilderState.save();
-                OfferBuilderState.save();
-                // OfferBuilderState.triggerUpdate(); // REMOVED to prevent full re-render and focus loss
                 this.updateFooterTotal(); // Targeted update instead
             }
 
@@ -484,21 +725,59 @@ $(function () {
 
         updateFooterTotal: function () {
             const items = Object.values(OfferBuilderState.pinnedItems);
-            let total = 0;
-            items.forEach(item => {
-                const price = parseFloat(item.price || 0);
-                const qty = parseInt(item.qty || 0);
-                if (!isNaN(price) && !isNaN(qty)) {
-                    total += price * qty;
-                }
-            });
-            this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            // Delegate to the main logic which handles button state too
+            this.updateTotalValue(items);
         },
 
         placeOffers: function () {
-            const count = Object.keys(OfferBuilderState.pinnedItems).length;
-            alert(`Successfully placed offers for ${count} items!`);
-            this.closeDrawer();
+            const items = OfferBuilderState.pinnedItems;
+            let count = 0;
+
+            Object.values(items).forEach(item => {
+                const price = parseFloat(item.price || 0);
+                const qty = parseInt(item.qty || 0);
+                const submittedQty = parseInt(item.submittedQty || 0);
+                const submittedPrice = parseFloat(item.submittedPrice || 0);
+                const status = item.offerStatus || 'Draft';
+
+                let isActionable = false;
+
+                // 1. New Offer (Draft)
+                if (status === 'Draft' || !item.offerStatus) {
+                    if (qty > 0 && price > 0) {
+                        isActionable = true;
+                    }
+                }
+                // 2. Existing Offer (Edited)
+                else if (status !== 'In Cart' && status !== 'Accepted') {
+                    if (qty !== submittedQty || Math.abs(price - submittedPrice) > 0.005) {
+                        isActionable = true;
+                    }
+                }
+
+                if (isActionable) {
+                    // Update status and snapshots
+                    item.offerStatus = 'Pending';
+                    item.submittedQty = qty;
+                    item.submittedPrice = price;
+                    // Ensure it's marked as pinned (though it should be if we are here, unless we support submitting unpinned items?)
+                    // If it was unpinned but active, and we edit+submit, it stays unpinned (Active tab) but updates values.
+
+                    count++;
+                }
+            });
+
+            if (count > 0) {
+                OfferBuilderState.save();
+                this.render(); // Re-render to show new statuses
+                alert(`Successfully placed offers for ${count} items!`);
+                this.closeDrawer();
+
+                // Trigger global update so Stock List icons/badges update
+                OfferBuilderState.triggerUpdate();
+            } else {
+                alert('No valid offers to place.');
+            }
         },
 
         onSearchInput: function () {
@@ -514,19 +793,7 @@ $(function () {
         // Actually, render passes items. Let's make updateFooterTotal get items from state if not passed, or just use state.
         // The implementation above pulls from state directly.
 
-        updateTotalValue: function (items) {
-            // Keep for render() compatibility if needed, or update render() to call this.updateFooterTotal()
-            // render() calls: this.updateTotalValue(items);
-            let total = 0;
-            items.forEach(item => {
-                const price = parseFloat(item.price || 0);
-                const qty = parseInt(item.qty || 0);
-                if (!isNaN(price) && !isNaN(qty)) {
-                    total += price * qty;
-                }
-            });
-            this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        },
+
 
         formatMoneyHTML: function (amount) {
             const val = parseFloat(amount || 0);
@@ -558,16 +825,134 @@ $(function () {
             }
         },
 
+        showAcceptConfirmation: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+
+            // Close other popovers
+            this.$('.accept-counter-offer').not(btn).popover('destroy');
+
+            // If this one is already open, toggling it by destroy might be what we want, or just return.
+            // But let's just destroy and re-create to be safe.
+            btn.popover('destroy');
+
+            const sku = btn.data('sku');
+            const itemData = OfferBuilderState.pinnedItems[sku];
+            const counterQty = itemData.counterQty || 0;
+            const counterPrice = itemData.counterPrice || 0;
+            const formattedPrice = counterPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            btn.popover({
+                html: true,
+                placement: 'bottom', // Bottom might be better for a link dropping down
+                trigger: 'manual',
+                container: '#offer-drawer',
+                content: `<div style="padding: 5px 10px;">
+                            <a href="#" class="confirm-accept" data-sku="${sku}" style="font-weight:bold; color:#2196f3; text-decoration:none;">
+                                Accept: ${counterQty} @ $${formattedPrice}
+                            </a>
+                          </div>`
+            });
+
+            btn.popover('show');
+
+            // Handle click outside to close
+            const closePopover = (ev) => {
+                // If click is NOT inside a popover and NOT on the button itself
+                if (!$(ev.target).closest('.popover').length && !$(ev.target).closest('.accept-counter-offer').length) {
+                    btn.popover('destroy');
+                    $(document).off('click', closePopover);
+                }
+            };
+
+            // Delay adding the listener slightly so the current click doesn't trigger it immediately? 
+            // In theory stopPropagation above handles the current click.
+            setTimeout(() => {
+                $(document).on('click', closePopover);
+            }, 0);
+        },
+
+        hideAcceptConfirmation: function (e) {
+            e.preventDefault();
+            // Destroy all to be safe and clean up DOM
+            this.$('.accept-counter-offer').popover('destroy');
+        },
+
+        acceptCounterOffer: function (e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent bubbling to document which closes drawer
+            // Since popover is now in this.$el, event delegation works.
+            // But we need to find the sku from the BUTTON, not the link (which is arguably hidden or not currentTarget)
+            const sku = $(e.currentTarget).data('sku');
+
+            if (OfferBuilderState.pinnedItems[sku]) {
+                // Update to counter values
+                itemData.qty = itemData.counterQty;
+                itemData.price = itemData.counterPrice;
+                itemData.offerStatus = 'In Cart';
+
+                // Update submitted snapshots so "Edited" doesn't show (clean slate)
+                itemData.submittedQty = itemData.counterQty;
+                itemData.submittedPrice = itemData.counterPrice;
+
+                OfferBuilderState.save();
+                this.render(); // Re-render to show updated state and remove popover
+            }
+
+            // Clean up any remaining popovers (rendering might have removed elements but not popover containers if detached)
+            $('.popover').remove();
+        },
+
         updateTotalValue: function (items) {
             let total = 0;
+            let enablePlaceOffer = false;
+            let editCount = 0;
+
             items.forEach(item => {
                 const price = parseFloat(item.price || 0);
                 const qty = parseInt(item.qty || 0);
+                const submittedQty = parseInt(item.submittedQty || 0);
+                const submittedPrice = parseFloat(item.submittedPrice || 0);
+                const status = item.offerStatus || 'Draft';
+
                 if (!isNaN(price) && !isNaN(qty)) {
                     total += price * qty;
                 }
+
+                // Logic for enabling button:
+                // 1. New Offer (Draft): Needs valid Qty > 0 and Price >= 0.
+                if (status === 'Draft' || !item.offerStatus) {
+                    // Start disabled until user enters a valid Price > 0
+                    if (qty > 0 && price > 0) {
+                        enablePlaceOffer = true;
+                        editCount++;
+                    }
+                }
+                // 2. Existing Offer (Pending, Countered, etc.): Only if changed.
+                // 3. Accepted/In Cart: Should not trigger "Place Offer" unless we want to allow re-submission?
+                //    Usually these are 'done'. So if status is 'In Cart', it doesn't contribute to enabling.
+                else if (status !== 'In Cart' && status !== 'Accepted') {
+                    // Check if values have changed from submitted snapshot
+                    if (qty !== submittedQty || Math.abs(price - submittedPrice) > 0.005) {
+                        enablePlaceOffer = true;
+                        editCount++;
+                    }
+                }
             });
+
             this.$('.offer-total-amount').text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+            const $btn = this.$('.btn-place-offer');
+            $btn.prop('disabled', !enablePlaceOffer);
+
+            // Update badge
+            const $badge = $btn.find('.badge');
+            if (editCount > 0) {
+                $badge.text(editCount).show();
+            } else {
+                $badge.hide();
+            }
         },
 
         validateAndShowFeedback: function (row) {
@@ -577,7 +962,7 @@ $(function () {
             const itemData = OfferBuilderState.pinnedItems[sku];
             const qty = parseInt(row.find('.qty').val());
             const priceVal = row.find('.price').val();
-            const price = parseFloat(priceVal);
+            let price = parseFloat(priceVal);
 
             // Quantity Validation
             const availQty = itemData.availableQty || 999;
@@ -609,12 +994,17 @@ $(function () {
             if (listPrice > 0) {
                 if (price <= 0 || isNaN(price)) {
                     // No Offer - clear dynamic feedback, static list price is shown
-                } else if (price >= listPrice) {
-                    // Buy at List (Cap)
-                    // Note: We don't auto-correct value here on render/validate to avoid fighting user input,
-                    // but we do style it and cap it logic-wise if we were saving. 
-                    // For visual feedback, we just check against listPrice.
+                } else if (price > listPrice) {
+                    // Cap at List Price
+                    price = listPrice;
+                    priceInput.val(price.toFixed(2)); // Auto-correct input
 
+                    priceInput.addClass('buying');
+                    listPriceCaption.addClass('buying');
+                    feedbackBadge.addClass('visible buying').text('BUY AT LIST');
+                    feedbackCaption.text('');
+                } else if (price === listPrice) {
+                    // Exact Match
                     priceInput.addClass('buying');
                     listPriceCaption.addClass('buying');
                     feedbackBadge.addClass('visible buying').text('BUY AT LIST');
@@ -626,6 +1016,77 @@ $(function () {
 
                     priceInput.addClass('offer'); // Green border
                     feedbackCaption.addClass('offer').text(`Savings: $${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                }
+            }
+
+            return { price: price, qty: qty };
+        },
+
+        checkEditedStatus: function (row, currentQty, currentPrice) {
+            const qtyInput = row.find('.control-input.qty');
+            const priceInput = row.find('.control-input.price');
+            let hasChanges = false;
+
+
+            // Get original submitted values (if any)
+            const submittedQty = parseInt(qtyInput.data('submitted-val') || 0);
+            const submittedPrice = parseFloat(priceInput.data('submitted-val') || 0);
+
+            // If submitted values exist (meaning it's not a fresh Draft or unknown), compare
+            // Note: If submittedQty is 0, it might be a Draft. Drafts can be edited without "Edited" label?
+            // Requirement says: "WHEN Pending, Countered, Rejected, or Accepted... show Edited"
+            // So we only show if data-submitted-val > 0
+
+            if (submittedQty > 0) {
+                if (currentQty !== submittedQty) {
+                    qtyInput.siblings('.edited-label').show();
+                    qtyInput.addClass('edited');
+                    hasChanges = true;
+                } else {
+                    qtyInput.siblings('.edited-label').hide();
+                    qtyInput.removeClass('edited');
+                }
+            }
+
+            if (submittedPrice > 0) {
+                // Float comparison tolerance
+                if (Math.abs(currentPrice - submittedPrice) > 0.005) {
+                    priceInput.siblings('.edited-label').show();
+                    priceInput.addClass('edited');
+                    hasChanges = true;
+                } else {
+                    priceInput.siblings('.edited-label').hide();
+                    priceInput.removeClass('edited');
+                }
+            }
+
+            // Toggle blue dot
+            // Note: Draft items (submittedQty == 0) always have the dot via Main Render, 
+            // but we might need to toggle it here if we want to support "clearing" a draft?
+            // For now, let's assume Draft items ALWAYS have the dot, so we only toggle for non-drafts or based on "Edited" state?
+            // User requirement: "mark items... with unsubmitted offer info".
+            // If it's a Draft, it IS unsubmitted info.
+            // If it's Pending/Countered, only if CHANGED.
+
+            // Check status (we need data-status or something on the row, relying on submittedQty being > 0 implies non-draft usually)
+            // But let's check class? No, status isn't class on row.
+            // Use submittedQty: if 0, it's a Draft (or unsubmitted). If > 0, it's an existing offer.
+
+            const dot = row.find('.unsubmitted-dot');
+
+            if (submittedQty === 0) {
+                // Draft: Show dot ONLY if current values are valid (Price > 0, Qty > 0)
+                if (currentPrice > 0 && currentQty > 0) {
+                    dot.show();
+                } else {
+                    dot.hide();
+                }
+            } else {
+                // Existing: Show only if hasChanges
+                if (hasChanges) {
+                    dot.show();
+                } else {
+                    dot.hide();
                 }
             }
         },
@@ -904,7 +1365,19 @@ $(function () {
             }
 
             this.collection.each(model => {
-                this.$el.append(this.template(model.toJSON()));
+                const data = model.toJSON();
+                // Enrich variants with current OfferBuilderState (to get latest status/qty)
+                if (data.variants) {
+                    data.variants.forEach(v => {
+                        const pinned = OfferBuilderState.pinnedItems[v.sku];
+                        if (pinned) {
+                            if (pinned.offerStatus) v.offerStatus = pinned.offerStatus;
+                            if (pinned.submittedQty) v.submittedQty = pinned.submittedQty;
+                            // Also ensure we have the latest quantity if it changed? (Usually stock qty comes from collection)
+                        }
+                    });
+                }
+                this.$el.append(this.template(data));
             });
 
             // Re-bind events for expanded content if needed
@@ -1162,8 +1635,27 @@ $(function () {
         initialize: function () {
             this.listenTo(this.collection, 'sync', this.renderFilters);
             this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
-            // Also need to listen if filters change locally before sync? 
-            // Sync happens after fetch, so it's accurate.
+
+            // Auto-ingest active offers on sync
+            this.listenTo(this.collection, 'sync', () => {
+                const activeVariants = [];
+                this.collection.each(model => {
+                    const variants = model.get('variants') || [];
+                    variants.forEach(v => {
+                        // Enrich variant with parent data needed for OfferBuilderState
+                        if (v.offerStatus && v.offerStatus !== 'Draft') {
+                            v.group_id = model.id;
+                            v.model = model.get('model');
+                            v.manufacturer = model.get('manufacturer');
+                            v.grade = model.get('grade');
+                            v.warehouse = model.get('warehouse');
+                            v.capacity = model.get('capacity');
+                            activeVariants.push(v);
+                        }
+                    });
+                });
+                OfferBuilderState.importActiveOffers(activeVariants);
+            });
         },
 
         toggleDrawer: function () {
