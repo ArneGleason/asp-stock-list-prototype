@@ -1839,7 +1839,7 @@ $(function () {
     });
 
     const SidebarView = Backbone.View.extend({
-        el: '.drawer-layout-container',
+        el: 'body',
 
         events: {
             'change #filter-oos': 'toggleOos',
@@ -1911,7 +1911,7 @@ $(function () {
         handleBackdropClick: function (e) {
             // Strictly enforce that the click actually landed on the backdrop itself, 
             // and didn't just bubble up from a deleted element inside the drawer.
-            if ($(e.target).is('#drawer-backdrop')) {
+            if (e.target && e.target.id === 'drawer-backdrop') {
                 this.closeDrawer();
             }
         },
