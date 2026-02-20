@@ -1604,7 +1604,33 @@ $(function () {
             'click .btn-buy': 'openBuyModal',
             'click .btn-offer': 'openOfferModal',
             'click .btn-offer-status': 'handleOfferStatusClick',
-            'click #toggle-all-details': 'toggleAllDetails'
+            'click #toggle-all-details': 'toggleAllDetails',
+            'click .remove-single-filter': 'removeOneFilter',
+            'click #reset-all-btn': 'resetAll'
+        },
+
+        removeOneFilter: function (e) {
+            const type = $(e.currentTarget).data('type');
+            const value = $(e.currentTarget).data('value');
+            this.collection.updateFilter(type, value, false);
+        },
+
+        resetAll: function () {
+            this.collection.state.filters = {
+                category: [],
+                warehouse: [],
+                manufacturer: [],
+                model: [],
+                grade: [],
+                capacity: [],
+                color: [],
+                network: [],
+                includeOos: false,
+                search: ''
+            };
+            $('#search-input').val('');
+            this.collection.state.start = 0;
+            this.collection.fetch();
         },
 
         handleOfferStatusClick: function (e) {
