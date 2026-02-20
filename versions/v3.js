@@ -2014,6 +2014,10 @@ $(function () {
             if (!facets) return;
 
             const container = $('#sidebar-filters-container');
+
+            // Persist the currently open section before destroying the HTML
+            const openSectionType = container.find('.filter-section.expanded .filter-checkbox').first().data('type') || null;
+
             container.empty();
 
             // Helper to render a group
@@ -2025,9 +2029,11 @@ $(function () {
                 const activeCount = activeFilters.length;
                 const activeBadgeHtml = activeCount > 0 ? `<span class="badge active-badge" style="background:#0070B9;margin-left:8px;font-size:10px;">${activeCount}</span>` : '';
 
-                // Everything collapsed by default
+                // Only expand if it matches the one that was previously open
+                const expandClass = (openSectionType === type) ? 'expanded' : '';
+
                 let html = `
-                    <div class="filter-section">
+                    <div class="filter-section ${expandClass}">
                         <div class="filter-section-header">
                             <h4>${title}${activeBadgeHtml}</h4>
                             <span class="material-icons chevron">expand_more</span>
@@ -2061,15 +2067,15 @@ $(function () {
                 container.append(html);
             };
 
-            // Order of rendering (Flattened)
+            // Order of rendering (Flattened & Re-ordered per user)
+            renderGroup('Warehouse', 'warehouse', facets.warehouse);
             renderGroup('Category', 'category', facets.category);
             renderGroup('Manufacturer', 'manufacturer', facets.manufacturer);
             renderGroup('Model', 'model', facets.model);
-            renderGroup('Capacity', 'capacity', facets.capacity);
-            renderGroup('Carrier / Network', 'network', facets.network);
-            renderGroup('Color', 'color', facets.color);
             renderGroup('Grade', 'grade', facets.grade);
-            renderGroup('Warehouse', 'warehouse', facets.warehouse);
+            renderGroup('Capacity', 'capacity', facets.capacity);
+            renderGroup('Color', 'color', facets.color);
+            renderGroup('Carrier / Network', 'network', facets.network);
         }
     });
 
