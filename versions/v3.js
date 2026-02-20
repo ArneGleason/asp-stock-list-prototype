@@ -1855,6 +1855,8 @@ $(function () {
         },
 
         initialize: function () {
+            this.facetSearchTerms = {}; // Track inline search inputs to persist across renders
+
             this.listenTo(this.collection, 'sync', this.renderFilters);
             this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
 
@@ -1969,7 +1971,14 @@ $(function () {
         handleFacetSearch: function (e) {
             const input = $(e.currentTarget);
             const term = input.val().toLowerCase();
+            const section = input.closest('.filter-section');
             const sectionBody = input.closest('.filter-section-body');
+            const type = section.data('type');
+
+            // Save term so it persists across API reloads
+            if (type) {
+                this.facetSearchTerms[type] = term;
+            }
 
             sectionBody.find('.checkbox-switch').each(function () {
                 const label = $(this).find('.label-text').text().toLowerCase();
@@ -2042,18 +2051,21 @@ $(function () {
                 `;
 
                 // If massive list, add local search
+                const savedTerm = this.facetSearchTerms[type] || '';
                 if (items.length > 10) {
                     html += `
                         <div class="facet-search-container" style="padding: 0 10px 10px 10px;">
-                            <input type="text" class="facet-search-input form-control input-sm" placeholder="Find ${title.toLowerCase()}...">
+                            <input type="text" class="facet-search-input form-control input-sm" placeholder="Find ${title.toLowerCase()}..." value="${savedTerm}">
                         </div>
                     `;
                 }
 
                 items.forEach(item => {
                     const isChecked = activeFilters.includes(item.label) ? 'checked' : '';
+                    const displayStyle = (savedTerm && !item.label.toLowerCase().includes(savedTerm.toLowerCase())) ? 'display: none;' : '';
+
                     html += `
-                        <div class="checkbox-switch" style="padding: 0 10px;">
+                        <div class="checkbox-switch" style="padding: 0 10px; ${displayStyle}">
                             <label style="width: 100%; display: flex; align-items: center; margin-bottom: 0;">
                                 <input type="checkbox" class="filter-checkbox" data-type="${type}" value="${item.label}" ${isChecked}>
                                 <span class="slider round"></span>
