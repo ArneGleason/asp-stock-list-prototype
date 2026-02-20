@@ -495,7 +495,8 @@
 }
 
 .offer-item-remove-btn,
-.offer-item-unpin-btn {
+.offer-item-unpin-btn,
+.offer-item-clear-btn {
     background: none;
     border: none;
     color: #999;
@@ -507,7 +508,8 @@
     transition: all 0.2s;
 }
 
-.offer-item-remove-btn:hover {
+.offer-item-remove-btn:hover,
+.offer-item-clear-btn:hover {
     color: #d9534f;
     background: #fff5f5;
 }
@@ -520,6 +522,15 @@
 .offer-item-unpin-btn:hover {
     background: #e3f2fd;
     color: #005a94;
+}
+
+/* Remove default padding for our specific unpin popover */
+.popover:has(.unpin-confirm-container) .popover-content {
+    padding: 0;
+}
+
+.unpin-confirm-container {
+    padding: 4px;
 }
 
 /* Status Badges */

@@ -30,15 +30,49 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    gap: 20px;
+    gap: 15px;
+    /* Slightly tighter gap to save space */
 }
 
-.offer-bar-title {
+/* NEW FAB SECTIONS */
+.fab-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.fab-section-title {
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
+    /* Slightly smaller to save space */
     letter-spacing: 1px;
     text-transform: uppercase;
     color: #ccc;
+}
+
+.fab-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #555;
+    margin: 0 5px;
+}
+
+/* Hide titles on very small screens to ensure it stays compact */
+@media (max-width: 576px) {
+    .fab-section-title {
+        display: none;
+    }
+
+    .offer-bar-content {
+        gap: 8px;
+        /* Tighter gap on mobile */
+    }
+
+    #offer-bar {
+        padding: 6px 15px;
+        /* Tighter padding on mobile */
+        min-width: 280px;
+    }
 }
 
 .offer-bar-actions {
@@ -48,49 +82,43 @@
 
 .offer-bar-actions .btn {
     border-radius: 20px;
-    padding: 6px 15px;
+    padding: 6px 12px 6px 16px;
+    /* Slightly more padding on left for text */
     font-size: 13px;
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    /* Space between text and badge */
     transition: all 0.2s ease;
+    background-color: #404040;
+    /* Dark gray pill background */
+    border: none;
+    /* Remove previous borders */
+    color: #eaeaea;
+    /* Light text */
 }
 
-.btn-view-pinned {
-    background-color: #444;
-    border: 1px solid #555;
-    color: #fff;
-}
-
-.btn-view-pinned:hover {
-    background-color: #555;
-}
-
-.btn-view-active {
-    background-color: #444;
-    border: 1px solid #555;
-    color: #fff;
-}
-
-.btn-view-active:hover {
-    background-color: #555;
+.offer-bar-actions .btn:hover {
+    background-color: #4a4a4a;
 }
 
 .offer-bar-actions .badge {
     font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    /* Oval shape */
+    background-color: #5a5a5a;
+    /* Slightly lighter gray than pill background */
+    color: #fff;
+    transition: background-color 0.2s ease;
 }
 
-.offer-bar-actions .badge.pinned-count {
-    background-color: #666;
-    color: #fff;
-}
-
-.offer-bar-actions .badge.active-count {
-    background-color: #28a745;
-    color: #fff;
+/* Dynamic State: When count > 0 */
+.offer-bar-actions .btn.has-items .badge {
+    background-color: #0070B9;
+    /* Prominent Blue */
 }
 
 /* ... existing styles ... */

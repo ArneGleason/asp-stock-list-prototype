@@ -568,7 +568,8 @@
                             <a href="#" class="add-to-cart-action action-link" data-sku="<%= sku %>" data-action-type="accepted">ADD TO CART</a>
                         </span>
                     <% } else { %>
-                        <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>">
+                        <span class="variant-status-badge status-<%= status ? status.toLowerCase().replace(' ', '-') : 'draft' %>" 
+                              <% if ((!status || status === 'Draft') && (!qty || !price)) { %>style="display: none;"<% } %>>
                             <%= status || 'Draft' %>
                         </span>
                     <% } %>
@@ -606,9 +607,15 @@
 
                 <!-- Actions -->
                 <% if (!status || status === 'Draft') { %>
-                    <button class="offer-item-unpin-btn offer-item-unpin" title="Unpin Item" style="color: #0070B9;">
-                        <span class="material-icons">bookmark</span>
-                    </button>
+                    <% if (qty > 0 && price > 0) { %>
+                        <button class="offer-item-clear-btn offer-item-clear text-danger" title="Clear Inputs" style="background: none; border: none; padding: 4px; display: flex; align-items: center;">
+                            <span class="material-icons">backspace</span>
+                        </button>
+                    <% } else { %>
+                        <button class="offer-item-unpin-btn offer-item-unpin" title="Unpin Item" style="color: #0070B9;">
+                            <span class="material-icons">bookmark</span>
+                        </button>
+                    <% } %>
                 <% } else { %>
                     <div class="variant-menu-container">
                         <button class="variant-menu-btn" title="More Actions">

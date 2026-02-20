@@ -305,10 +305,8 @@ $(function () {
 
         events: {
             'click .drawer-close-btn': 'closeDrawer',
-            'click .drawer-close-btn': 'closeDrawer',
-            'click .offer-item-unpin': 'showUnpinConfirmation',
-            'click .confirm-unpin': 'confirmUnpin',
-            'click .cancel-unpin': 'hideUnpinConfirmation',
+            'click .offer-item-unpin': 'confirmUnpin',
+            'click .offer-item-clear': 'clearItemInputs',
             'change .control-input': 'updateItemState',
             'change .control-input': 'updateItemState',
             'keyup .control-input': 'updateItemState',
@@ -726,47 +724,44 @@ $(function () {
 
         // Re-implementing correctly below:
 
-        showUnpinConfirmation: function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const btn = $(e.currentTarget);
-            const sku = btn.closest('.offer-variant-row').data('sku');
-
-            this.$('.offer-item-unpin').not(btn).popover('destroy');
-            btn.popover('destroy');
-
-            btn.popover({
-                html: true,
-                placement: 'bottom',
-                trigger: 'manual',
-                container: '#offer-drawer',
-                content: `<div style="padding: 5px; text-align: center;">
-                            <button class="btn btn-sm btn-primary confirm-unpin" data-sku="${sku}" style="width: 100%;">UNPIN ITEM</button>
-                          </div>`
-            });
-
-            btn.popover('show');
-
-            const closePopover = (ev) => {
-                if (!$(ev.target).closest('.popover').length && !$(ev.target).closest('.offer-item-unpin').length) {
-                    btn.popover('destroy');
-                    $(document).off('click', closePopover);
-                }
-            };
-            setTimeout(() => { $(document).on('click', closePopover); }, 0);
-        },
-
         confirmUnpin: function (e) {
             e.preventDefault();
             e.stopPropagation();
             const btn = $(e.currentTarget);
-            const sku = btn.data('sku');
+            const sku = btn.closest('.offer-variant-row').data('sku');
+            const row = this.$(`.offer-variant-row[data-sku="${sku}"]`);
 
             if (sku) {
                 OfferBuilderState.togglePin({ sku: sku });
             }
 
-            $('.popover').remove(); // Close all
+            $('.popover').remove(); // Clear any lingering popovers just in case
+
+            // Visually remove the row if it was unpinned and is no longer in the state
+            if (!OfferBuilderState.isPinned(sku)) {
+                row.slideUp(200, function () {
+                    let groupContainer = row.closest('.offer-group');
+                    row.remove();
+                    // If group is empty, remove it too
+                    if (groupContainer.find('.offer-variant-row').length === 0) {
+                        groupContainer.remove();
+                    }
+                });
+            }
+        },
+
+        clearItemInputs: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+            const row = btn.closest('.offer-variant-row');
+
+            // Reset quantity to 1 and empty the price
+            row.find('.qty').val(1);
+            row.find('.price').val('');
+
+            // Trigger change event to save the cleared state and run validation UI updates
+            row.find('.price').trigger('change');
         },
 
         updateItemState: function (e) {
@@ -784,8 +779,6 @@ $(function () {
             if (e.type === 'keyup') {
                 if (!isNaN(price) && price >= 0) {
                     // We could manually update line total here if we want instant feedback
-                    // const total = qty * price;
-                    // row.find('.line-total').text('$' + total.toLocaleString(...));
                 }
                 return;
             }
@@ -821,6 +814,34 @@ $(function () {
                 row.find('.item-total').html(this.formatMoneyHTML(total));
             } else {
                 row.find('.item-total').html(this.formatMoneyHTML(0));
+            }
+
+            // Dynamic Pin / Eraser Icon Toggle
+            const actionBtn = row.find('.offer-item-unpin, .offer-item-clear');
+            let isValidOffer = (qty > 0 && !isNaN(price) && price > 0);
+
+            if (actionBtn.length > 0) {
+                if (isValidOffer) {
+                    // Switch to Eraser
+                    actionBtn.removeClass('offer-item-unpin-btn offer-item-unpin');
+                    actionBtn.addClass('offer-item-clear-btn offer-item-clear text-danger');
+                    actionBtn.attr('title', 'Clear Inputs');
+                    actionBtn.css({ color: '', background: 'none', border: 'none', padding: '4px', display: 'flex', 'align-items': 'center' });
+                    actionBtn.find('.material-icons').text('backspace');
+                } else {
+                    // Switch to Pin
+                    actionBtn.removeClass('offer-item-clear-btn offer-item-clear text-danger');
+                    actionBtn.addClass('offer-item-unpin-btn offer-item-unpin');
+                    actionBtn.attr('title', 'Unpin Item');
+                    actionBtn.css({ color: '#0070B9' });
+                    actionBtn.find('.material-icons').text('bookmark');
+                }
+            }
+
+            // Conditional Draft Badge
+            const draftBadge = row.find('.variant-status-badge.status-draft');
+            if (draftBadge.length > 0) {
+                draftBadge.toggle(isValidOffer);
             }
         },
 
@@ -1094,17 +1115,14 @@ $(function () {
                 const submittedPrice = parseFloat(item.submittedPrice || 0);
                 const status = item.offerStatus || 'Draft';
 
-                if (!isNaN(price) && !isNaN(qty)) {
-                    total += price * qty;
-                }
+                let isReadyToBePlaced = false;
 
                 // Logic for enabling button:
                 // 1. New Offer (Draft): Needs valid Qty > 0 and Price >= 0.
                 if (status === 'Draft' || !item.offerStatus) {
                     // Start disabled until user enters a valid Price > 0
                     if (qty > 0 && price > 0) {
-                        enablePlaceOffer = true;
-                        editCount++;
+                        isReadyToBePlaced = true;
                     }
                 }
                 // 2. Existing Offer (Pending, Countered, etc.): Only if changed.
@@ -1113,8 +1131,15 @@ $(function () {
                 else if (status !== 'In Cart' && status !== 'Accepted') {
                     // Check if values have changed from submitted snapshot
                     if (qty !== submittedQty || Math.abs(price - submittedPrice) > 0.005) {
-                        enablePlaceOffer = true;
-                        editCount++;
+                        isReadyToBePlaced = true;
+                    }
+                }
+
+                if (isReadyToBePlaced) {
+                    enablePlaceOffer = true;
+                    editCount++;
+                    if (!isNaN(price) && !isNaN(qty)) {
+                        total += price * qty;
                     }
                 }
             });
