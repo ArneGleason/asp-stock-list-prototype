@@ -1839,7 +1839,7 @@ $(function () {
     });
 
     const SidebarView = Backbone.View.extend({
-        el: 'body',
+        el: '.drawer-layout-container',
 
         events: {
             'change #filter-oos': 'toggleOos',
@@ -1848,7 +1848,7 @@ $(function () {
             'click #search-clear': 'clearSearch',
             'click #filter-toggle-btn': 'toggleDrawer', // Changed to toggle
             'click #close-drawer': 'closeDrawer',
-            'click #drawer-backdrop': 'closeDrawer',
+            'click #drawer-backdrop': 'handleBackdropClick',
             'click .remove-filter': 'removeFilterChip',
             'click .filter-section-header': 'toggleSection',
             'keyup .facet-search-input': 'handleFacetSearch',
@@ -1906,6 +1906,14 @@ $(function () {
             $('#drawer-backdrop').removeClass('open');
             $('#filter-toggle-btn').removeClass('active').attr('aria-expanded', 'false');
             $('body').css('overflow', '');
+        },
+
+        handleBackdropClick: function (e) {
+            // Strictly enforce that the click actually landed on the backdrop itself, 
+            // and didn't just bubble up from a deleted element inside the drawer.
+            if ($(e.target).is('#drawer-backdrop')) {
+                this.closeDrawer();
+            }
         },
 
         updateBadge: function () {
