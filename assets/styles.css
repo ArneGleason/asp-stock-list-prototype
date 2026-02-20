@@ -793,6 +793,7 @@ h6,
 
     .drawer-backdrop.open {
         display: block;
+        opacity: 1;
     }
 }
 

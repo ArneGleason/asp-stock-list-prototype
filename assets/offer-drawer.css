@@ -798,8 +798,8 @@
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.5);
     /* Dimmed background */
-    z-index: 1001;
-    /* Below drawer (1002) */
+    z-index: 1000;
+    /* Below drawer (1002) and filter drawer (1001) */
     display: none;
     opacity: 0;
     transition: opacity 0.3s ease;
