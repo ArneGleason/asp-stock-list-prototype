@@ -1851,7 +1851,8 @@ $(function () {
             'click #drawer-backdrop': 'closeDrawer',
             'click .remove-filter': 'removeFilterChip',
             'click .filter-section-header': 'toggleSection',
-            'keyup .facet-search-input': 'handleFacetSearch'
+            'keyup .facet-search-input': 'handleFacetSearch',
+            'click .facet-search-clear': 'clearFacetSearch'
         },
 
         initialize: function () {
@@ -1980,6 +1981,14 @@ $(function () {
                 this.facetSearchTerms[type] = term;
             }
 
+            // Toggle clear icon
+            const clearIcon = section.find('.facet-search-clear');
+            if (term.length > 0) {
+                clearIcon.show();
+            } else {
+                clearIcon.hide();
+            }
+
             sectionBody.find('.checkbox-switch').each(function () {
                 const label = $(this).find('.label-text').text().toLowerCase();
                 if (label.includes(term)) {
@@ -1988,6 +1997,16 @@ $(function () {
                     $(this).hide();
                 }
             });
+        },
+
+        clearFacetSearch: function (e) {
+            const clearIcon = $(e.currentTarget);
+            const container = clearIcon.closest('.facet-search-container');
+            const input = container.find('.facet-search-input');
+
+            input.val('');
+            input.trigger('keyup'); // Trigger the filter reset
+            input.focus();
         },
 
         toggleFilter: function (e) {
@@ -2052,10 +2071,12 @@ $(function () {
 
                 // If massive list, add local search
                 const savedTerm = this.facetSearchTerms[type] || '';
+                const clearIconStyle = savedTerm ? '' : 'display: none;';
                 if (items.length > 10) {
                     html += `
-                        <div class="facet-search-container" style="padding: 0 10px 10px 10px;">
+                        <div class="facet-search-container" style="padding: 0 10px 10px 10px; position: relative;">
                             <input type="text" class="facet-search-input form-control input-sm" placeholder="Find ${title.toLowerCase()}..." value="${savedTerm}">
+                            <span class="material-icons facet-search-clear" style="${clearIconStyle} position: absolute; right: 20px; top: 6px; font-size: 16px; color: #999; cursor: pointer;">close</span>
                         </div>
                     `;
                 }
