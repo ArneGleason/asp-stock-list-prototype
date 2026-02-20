@@ -2041,7 +2041,9 @@ $(function () {
             'click #btn-accept-counter': 'acceptCounter',
             'click #btn-accept-accepted': 'acceptAccepted',
             'input #modal-qty': 'updateTotal',
-            'input #modal-offer-price': 'updateTotal'
+            'input #modal-offer-price': 'updateTotal',
+            'input #eo-update-qty': 'updateTotal',
+            'input #eo-update-price': 'updateTotal'
         },
 
         initialize: function () {
@@ -2187,9 +2189,20 @@ $(function () {
             let price;
             const listPrice = this.rawData.listPrice !== undefined ? this.rawData.listPrice : this.rawData.price;
 
+            // Extract original offer values for comparison
+            const origQty = this.rawData.submittedQty || this.rawData.offerQty || 1;
+            const origPrice = this.rawData.submittedPrice || this.rawData.offerPrice || listPrice || 0;
+
             if (this.mode === 'edit_offer') {
                 qty = parseInt(this.$('#eo-update-qty').val()) || 0;
                 price = parseFloat(this.$('#eo-update-price').val()) || 0;
+
+                // Disable submit button if entered values strictly match the original offer
+                if (qty === origQty && Math.abs(price - origPrice) < 0.001) {
+                    this.$('#btn-submit-update').prop('disabled', true);
+                } else {
+                    this.$('#btn-submit-update').prop('disabled', false);
+                }
             } else {
                 qty = parseInt(this.$('#modal-qty').val()) || 0;
                 price = listPrice;
