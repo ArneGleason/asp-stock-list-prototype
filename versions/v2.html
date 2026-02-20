@@ -15,9 +15,9 @@
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="../assets/styles.css">
-    <link rel="stylesheet" href="../assets/offer-bar.css">
-    <link rel="stylesheet" href="../assets/offer-drawer.css">
+    <link rel="stylesheet" href="../assets/styles.css?v=2.9">
+    <link rel="stylesheet" href="../assets/offer-bar.css?v=2.9">
+    <link rel="stylesheet" href="../assets/offer-drawer.css?v=2.9">
 </head>
 
 <body>
@@ -193,64 +193,206 @@
     <div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
-                            aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title" id="modal-item-title">Item Title</h4>
-                    <small class="text-muted" id="modal-item-sku">Item #</small>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>Available:</strong> <span id="modal-avail-qty">0</span></p>
+                <div class="modal-header" style="border-bottom: 1px solid #e5e5e5; padding: 15px 20px;">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"
+                        style="margin-top: -2px;"><span aria-hidden="true">&times;</span></button>
+                    <!-- Rich Header matching Stock List -->
+                    <div class="modal-rich-header">
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <span class="product-title" id="modal-item-title"
+                                style="font-size: 1.25em; font-weight: 500;">Item Title</span>
+                            <span id="modal-offer-status-badge" class="variant-status-badge"
+                                style="display:none; margin-left:10px; font-size:11px; padding: 2px 6px;">STATUS</span>
                         </div>
-                        <div class="col-md-6 text-right">
-                            <p><strong>List Price:</strong> <span id="modal-list-price">$0.00</span></p>
+                        <div id="modal-item-badges"
+                            style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+                            <!-- Injected Badges (Grades, Warehouse) -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body" style="padding: 0;">
+
+                    <!-- Variant Detail Row (Mimics Offer Worksheet) -->
+                    <div class="modal-variant-info row"
+                        style="margin: 0; padding: 12px 20px; background-color: #fcfcfc; border-bottom: 1px solid #eee; display: flex; align-items: center;">
+                        <div class="col-xs-8" style="padding-left: 0;">
+                            <div style="font-weight: 500; font-size: 0.95em; color: #333;" id="modal-variant-desc">Color
+                                (Network)</div>
+                            <div style="font-family: monospace; font-size: 0.85em; color: #8BA1A7; margin-top: 2px;"
+                                id="modal-item-sku">SKU</div>
+                        </div>
+                        <div class="col-xs-4 text-right" style="padding-right: 0; color: #666; font-size: 0.9em;">
+                            Avail: <strong id="modal-avail-qty" style="color: #333;">0</strong>
                         </div>
                     </div>
 
-                    <hr>
+                    <div style="padding: 20px;">
+                        <!-- Standard Buy / Offer Form (Hidden in Edit Mode) -->
+                        <div id="standard-buy-offer-section">
+                            <div style="display: flex; align-items: flex-start; gap: 15px;">
+                                <!-- Qty -->
+                                <div class="control-wrapper" style="width: 100px;">
+                                    <input type="number" class="control-input qty text-center" id="modal-qty" value="1"
+                                        min="1" style="width: 100%;">
+                                    <span class="helper-text"
+                                        style="display:block; text-align:center; margin-top: 4px;">Quantity</span>
+                                </div>
 
-                    <form class="form-horizontal">
-                        <div class="form-group">
-                            <label for="modal-qty" class="col-sm-3 control-label">Quantity</label>
-                            <div class="col-sm-4">
-                                <input type="number" class="form-control" id="modal-qty" value="1" min="1">
-                            </div>
-                        </div>
+                                <!-- Read-Only List Price (Buy Mode) -->
+                                <div id="modal-buy-list-price-container" style="display:none; margin-top: 10px;">
+                                    <span style="font-size: 0.95em; color: #555;">List: <strong
+                                            id="modal-buy-list-price">$0.00</strong></span>
+                                </div>
 
-                        <!-- Offer Price (Hidden in Buy Mode) -->
-                        <div class="form-group" id="modal-offer-price-group" style="display:none;">
-                            <label for="modal-offer-price" class="col-sm-3 control-label">Your Offer</label>
-                            <div class="col-sm-4">
-                                <div class="input-group">
-                                    <span class="input-group-addon">$</span>
-                                    <input type="number" class="form-control" id="modal-offer-price" step="0.01">
+                                <!-- Optional Offer Price -->
+                                <div class="control-wrapper" id="modal-offer-price-group"
+                                    style="display:none; width: 140px;">
+                                    <span class="input-prefix" style="left: 10px;">$</span>
+                                    <input type="number" class="control-input price" id="modal-offer-price" step="0.01"
+                                        style="padding-left: 20px; width: 100%;">
+                                    <span class="helper-text static-list-price"
+                                        style="display:block; margin-top: 4px;">List: <span
+                                            id="modal-list-price">$0.00</span></span>
+                                </div>
+
+                                <!-- Total -->
+                                <div style="margin-left: auto; text-align: right; align-self: center;">
+                                    <div style="font-size: 0.85em; color: #8BA1A7; text-transform: uppercase;">Total
+                                    </div>
+                                    <div id="modal-total" style="font-weight: 600; font-size: 1.4em; color: #333;">$0.00
+                                    </div>
+                                    <div class="offer-feedback"
+                                        style="display: flex; justify-content: flex-end; align-items: center; margin-top: 2px;">
+                                        <span id="modal-feedback-badge" class="feedback-badge"
+                                            style="display: none; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: 600; margin-right: 4px;"></span>
+                                        <span id="modal-feedback-caption" class="feedback-caption"
+                                            style="font-size: 0.85em; color: #8BA1A7;"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Total (Only relevant for Buy, or calc for offer) -->
-                        <div class="form-group">
-                            <label class="col-sm-3 control-label">Total</label>
-                            <div class="col-sm-9">
-                                <p class="form-control-static" id="modal-total"
-                                    style="font-weight: bold; font-size: 1.2em;">$0.00</p>
+                        <!-- Edit Offer Sections -->
+                        <div id="edit-offer-sections" style="display:none;">
+
+                            <!-- Current Offer (Always visible in edit mode) -->
+                            <div class="panel panel-default" id="section-current-offer"
+                                style="border: none; box-shadow: none; margin-bottom: 10px;">
+                                <div class="panel-body"
+                                    style="background-color: #f9f9f9; padding: 10px 15px; border-radius: 4px;">
+                                    <div>
+                                        <strong style="color: #555;">Current Offer</strong>
+                                        <div style="font-size: 0.9em; margin-top: 3px; color: #666;">
+                                            Qty: <strong id="eo-current-qty">0</strong> &nbsp;|&nbsp; Price: <strong
+                                                id="eo-current-price">$0.00</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Counter Offer Details -->
+                            <div class="panel" id="section-counter-offer"
+                                style="display:none; margin-bottom: 10px; border: 1px solid #ce93d8;">
+                                <div class="panel-heading"
+                                    style="padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background-color: #f3e5f5; color: #7b1fa2; border-bottom: none;">
+                                    <div>
+                                        <strong>Counter Offer Received</strong>
+                                        <div style="font-size: 0.9em; margin-top: 3px; color: #6a1b9a;">
+                                            Qty: <strong id="eo-counter-qty">0</strong> &nbsp;|&nbsp; Price: <strong
+                                                id="eo-counter-price">$0.00</strong>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm"
+                                        style="background-color: #9c27b0; color: white; border: none; padding: 5px 10px;"
+                                        id="btn-accept-counter">ADD TO
+                                        CART</button>
+                                </div>
+                            </div>
+
+                            <!-- Accepted Offer Details -->
+                            <div class="panel panel-success" id="section-accepted-offer"
+                                style="display:none; margin-bottom: 10px;">
+                                <div class="panel-heading"
+                                    style="padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>Offer Accepted!</strong>
+                                    </div>
+                                    <button type="button" class="btn btn-success btn-sm" id="btn-accept-accepted">ADD TO
+                                        CART</button>
+                                </div>
+                            </div>
+
+                            <div class="panel panel-default" id="section-update-offer"
+                                style="display:none; margin-bottom: 0;">
+                                <div class="panel-body">
+                                    <strong style="display:block; margin-bottom: 15px; color: #555;">Update
+                                        Offer</strong>
+                                    <div
+                                        style="display: flex; align-items: flex-start; justify-content: space-between; gap: 15px;">
+
+                                        <div style="display: flex; align-items: flex-start; gap: 15px;">
+                                            <!-- Qty -->
+                                            <div class="control-wrapper" style="width: 80px; margin-bottom: 0;">
+                                                <input type="number" class="control-input qty text-center"
+                                                    id="eo-update-qty" min="1" style="width: 100%;">
+                                                <span class="helper-text" id="eo-update-avail"
+                                                    style="display:block; text-align:center; margin-top: 4px;">Avail:
+                                                    0</span>
+                                            </div>
+
+                                            <!-- Price -->
+                                            <div class="control-wrapper" style="width: 120px; margin-bottom: 0;">
+                                                <span class="input-prefix" style="left: 10px;">$</span>
+                                                <input type="number" class="control-input price" id="eo-update-price"
+                                                    step="0.01" style="padding-left: 20px; width: 100%;">
+                                                <span class="helper-text" id="eo-update-list-price"
+                                                    style="display:block; margin-top: 4px;">List: $0.00</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Total & Feedback -->
+                                        <div style="text-align: right; padding-top: 5px;">
+                                            <div
+                                                style="display: flex; align-items: baseline; justify-content: flex-end; gap: 6px;">
+                                                <div
+                                                    style="font-size: 0.85em; color: #8BA1A7; text-transform: uppercase;">
+                                                    Total</div>
+                                                <div id="eo-update-total"
+                                                    style="font-weight: 600; font-size: 1em; color: #333;">$0.00</div>
+                                            </div>
+                                            <div class="offer-feedback"
+                                                style="display: flex; justify-content: flex-end; align-items: center; margin-top: 2px;">
+                                                <span id="eo-update-feedback-caption" class="feedback-caption"
+                                                    style="font-size: 0.85em; color: #8BA1A7;"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 15px; text-align: right;">
+                                        <button type="button" class="btn btn-primary btn-sm" id="btn-submit-update"
+                                            style="padding: 5px 15px; font-weight: 600;">UPDATE OFFER</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </form>
 
-                    <div id="offer-disclaimer" class="alert alert-warning"
-                        style="display:none; margin-top: 10px; font-size: 0.9em;">
-                        <strong>Note:</strong> Offers are cleared every day starting 11:00AM Central Time (CT).
+                        <div id="offer-disclaimer" class="alert alert-warning"
+                            style="display:none; margin-top: 15px; font-size: 0.85em; margin-bottom:0; padding: 10px;">
+                            <strong>Note:</strong> Offers are cleared daily at 11:00AM CT.
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <div class="pull-left">
-                        <a href="#" id="modal-mode-toggle">Make an Offer</a>
+                    <div class="modal-footer"
+                        style="display: flex; justify-content: space-between; align-items: center; border-top: none; padding-top:0;">
+                        <div class="footer-left" style="flex: 1; text-align: left;">
+                            <a href="#" id="modal-mode-toggle">Make an Offer</a>
+                            <button type="button" class="btn btn-link text-muted" id="modal-cancel-offer"
+                                style="display:none; padding: 0; text-decoration: none; font-size: 0.85em; font-weight: 600; letter-spacing: 0.5px;">CANCEL
+                                OFFER</button>
+                        </div>
+                        <div class="footer-right" style="flex: 1; text-align: right;">
+                            <button type="button" class="btn btn-primary" id="modal-submit-btn">ADD TO CART</button>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="modal-submit-btn">ADD TO CART</button>
                 </div>
             </div>
         </div>
@@ -304,7 +446,7 @@
                                 var statusClass = 'status-' + variant.offerStatus.toLowerCase().replace(' ', '-');
                                 var qtyLabel = variant.submittedQty ? ': ' + variant.submittedQty : (variant.quantity ? ': ' + variant.quantity : '');
                             %>
-                                <button class="btn <%= statusClass %> btn-offer-status" data-status="<%= variant.offerStatus %>">
+                                <button class="btn btn-xs <%= statusClass %> btn-offer-status" data-sku="<%= variant.sku %>" data-status="<%= variant.offerStatus %>">
                                     <%= variant.offerStatus.toUpperCase() %><%= qtyLabel %>
                                 </button>
                             <% } else { %>
@@ -316,38 +458,13 @@
                             <% } %>
                         </div>
                     </div>
+                    </div>
                 <% }); %>
             </div>
         </div>
     </script>
 
-    <!-- Offer Bar (Sticky Footer) -->
-    <!-- Sticky Offer Bar -->
-    <div id="offer-bar" class="offer-bar">
-        <div class="container-fluid">
-            <div class="offer-bar-content">
-                <span class="offer-bar-title">OFFERS</span>
-                <div class="offer-bar-actions">
-                    <button class="btn btn-dark btn-sm btn-view-pinned">
-                        Pinned <span class="badge badge-light pinned-count">0</span>
-                    </button>
-                    <button class="btn btn-dark btn-sm btn-view-active">
-                        Active <span class="badge badge-success active-count">0</span>
-                    </button>
-                    <div class="offer-bar-menu-container">
-                        <button class="btn btn-icon offer-bar-menu-btn">
-                            <span class="material-icons">more_vert</span>
-                        </button>
-                        <div class="offer-bar-menu">
-                            <div class="menu-item action-clear-pinned">
-                                <span class="material-icons">close</span> Clear Pinned
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Offer Drawer (Right Side) -->
     <div id="offer-drawer" class="offer-drawer">
@@ -542,6 +659,33 @@
             </div>
         </div>
     </script>
+
+    <!-- Sticky Offer Bar -->
+    <div id="offer-bar" class="offer-bar">
+        <div class="container-fluid">
+            <div class="offer-bar-content">
+                <span class="offer-bar-title">OFFERS</span>
+                <div class="offer-bar-actions">
+                    <button class="btn btn-dark btn-sm btn-view-pinned">
+                        Pinned <span class="badge badge-light pinned-count">0</span>
+                    </button>
+                    <button class="btn btn-dark btn-sm btn-view-active">
+                        Active <span class="badge badge-success active-count">0</span>
+                    </button>
+                    <div class="offer-bar-menu-container">
+                        <button class="btn btn-icon offer-bar-menu-btn">
+                            <span class="material-icons">more_vert</span>
+                        </button>
+                        <div class="offer-bar-menu">
+                            <div class="menu-item action-clear-pinned">
+                                <span class="material-icons">close</span> Clear Pinned
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

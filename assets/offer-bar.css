@@ -2,7 +2,7 @@
     position: fixed;
     bottom: 30px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(20px);
     /* Centered */
     background-color: #333;
     color: #fff;
@@ -14,6 +14,15 @@
     border-radius: 50px;
     z-index: 1000;
     min-width: 300px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#offer-bar.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
 }
 
 .offer-bar-content {
@@ -82,7 +91,9 @@
 .offer-bar-actions .badge.active-count {
     background-color: #28a745;
     color: #fff;
-}/* ... existing styles ... */
+}
+
+/* ... existing styles ... */
 
 .offer-bar-menu-container {
     position: relative;
