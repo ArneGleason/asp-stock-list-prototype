@@ -15,9 +15,9 @@
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="../assets/styles.css?v=2.9">
-    <link rel="stylesheet" href="../assets/offer-bar.css?v=2.9">
-    <link rel="stylesheet" href="../assets/offer-drawer.css?v=2.9">
+    <link rel="stylesheet" href="../assets/styles.css?v=2.0">
+    <link rel="stylesheet" href="../assets/offer-bar.css?v=2.0">
+    <link rel="stylesheet" href="../assets/offer-drawer.css?v=2.0">
 </head>
 
 <body>
@@ -67,21 +67,7 @@
         </div>
 
         <!-- Toolbar (Mocked) -->
-        <!-- Toolbar (Actions) -->
-        <div class="row" style="margin-bottom: 15px;">
-            <div class="col-xs-12 text-right action-bar">
-                <div class="btn-group" role="group">
-                    <button class="btn btn-default action-btn"><span class="material-icons">file_upload</span>
-                        Import</button>
-                    <button class="btn btn-default action-btn"><span class="material-icons">file_download</span>
-                        Export</button>
-                </div>
-                <button class="btn btn-primary action-btn btn-cart" style="margin-left: 10px;">
-                    <span class="material-icons">shopping_cart</span> Cart
-                    <span class="badge">2</span>
-                </button>
-            </div>
-        </div>
+        <!-- Top Action Bar (Import/Export/Cart) Removed per mockup -->
 
         <!-- Unified Search Header (Toolbar) -->
         <div class="row search-header-row">
@@ -670,25 +656,50 @@
     <div id="offer-bar" class="offer-bar">
         <div class="container-fluid">
             <div class="offer-bar-content">
-                <span class="offer-bar-title">OFFERS</span>
-                <div class="offer-bar-actions">
-                    <button class="btn btn-dark btn-sm btn-view-pinned">
-                        Pinned <span class="badge badge-light pinned-count">0</span>
-                    </button>
-                    <button class="btn btn-dark btn-sm btn-view-active">
-                        Active <span class="badge badge-success active-count">0</span>
-                    </button>
-                    <div class="offer-bar-menu-container">
-                        <button class="btn btn-icon offer-bar-menu-btn">
-                            <span class="material-icons">more_vert</span>
+
+                <!-- OFFERS SECTION -->
+                <div class="fab-section">
+                    <span class="fab-section-title">OFFERS</span>
+                    <div class="offer-bar-actions">
+                        <button class="btn btn-dark btn-sm btn-view-pinned">
+                            Pinned <span class="badge badge-light pinned-count">0</span>
                         </button>
-                        <div class="offer-bar-menu">
-                            <div class="menu-item action-clear-pinned">
-                                <span class="material-icons">close</span> Clear Pinned
-                            </div>
+                        <button class="btn btn-dark btn-sm btn-view-active">
+                            Active <span class="badge badge-success active-count">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="fab-divider"></div>
+
+                <!-- CART SECTION -->
+                <div class="fab-section" style="flex-grow: 1;">
+                    <span class="fab-section-title">CART</span>
+                    <div class="offer-bar-actions">
+                        <button class="btn btn-dark btn-sm btn-cart">
+                            Ready <span class="badge badge-light">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- OVERFLOW MENU (FAR RIGHT) -->
+                <div class="offer-bar-menu-container">
+                    <button class="btn btn-icon offer-bar-menu-btn">
+                        <span class="material-icons">more_vert</span>
+                    </button>
+                    <div class="offer-bar-menu">
+                        <div class="menu-item action-import">
+                            <span class="material-icons">file_upload</span> Import
+                        </div>
+                        <div class="menu-item action-export">
+                            <span class="material-icons">file_download</span> Export
+                        </div>
+                        <div class="menu-item action-clear-pinned">
+                            <span class="material-icons">close</span> Clear Pinned
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -701,9 +712,9 @@
     <!-- SheetJS for XLSX -->
     <script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <!-- App Logic -->
-    <script src="../assets/mock-data.js?v=2.8"></script>
-    <script src="v2.js?v=2.8"></script>
-    <script src="../assets/nav.js?v=2.8"></script>
+    <script src="../assets/mock-data.js?v=2.0"></script>
+    <script src="v2.js?v=2.0"></script>
+    <script src="../assets/nav.js?v=2.0"></script>
 
 </body>
 

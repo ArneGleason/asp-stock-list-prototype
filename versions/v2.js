@@ -14,7 +14,7 @@ $(function () {
 
         init: function () {
             window.OfferBuilderState = this; // Expose for debugging
-            const stored = localStorage.getItem('offerBuilderState');
+            const stored = localStorage.getItem('offerBuilderState_v3');
             if (stored) {
                 this.pinnedItems = JSON.parse(stored);
                 // Migration: Ensure all items have isPinned property (legacy support)
@@ -153,7 +153,7 @@ $(function () {
         },
 
         save: function () {
-            localStorage.setItem('offerBuilderState', JSON.stringify(this.pinnedItems));
+            localStorage.setItem('offerBuilderState_v3', JSON.stringify(this.pinnedItems));
         },
 
         clearAll: function () {
@@ -248,11 +248,20 @@ $(function () {
             // Count Active (Post-Draft)
             const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
 
-            console.log('Bar Render: Pinned=', pinnedCount, 'Active=', activeCount);
+            // Count Cart (Ready)
+            const cartCount = allItems.filter(item => item.offerStatus === 'In Cart').length;
 
-            // Update Badge Text
-            this.$('.pinned-count').text(pinnedCount);
-            this.$('.active-count').text(activeCount);
+            console.log('Bar Render: Pinned=', pinnedCount, 'Active=', activeCount, 'Ready=', cartCount);
+
+            // Update Badge Text and toggle the highlight class
+            this.$('.btn-view-pinned .badge').text(pinnedCount);
+            this.$('.btn-view-pinned').toggleClass('has-items', pinnedCount > 0);
+
+            this.$('.btn-view-active .badge').text(activeCount);
+            this.$('.btn-view-active').toggleClass('has-items', activeCount > 0);
+
+            this.$('.btn-cart .badge').text(cartCount);
+            this.$('.btn-cart').toggleClass('has-items', cartCount > 0);
 
             // Per requirement, the offer bar should always be visible
             this.$el.addClass('visible');
@@ -1595,7 +1604,33 @@ $(function () {
             'click .btn-buy': 'openBuyModal',
             'click .btn-offer': 'openOfferModal',
             'click .btn-offer-status': 'handleOfferStatusClick',
-            'click #toggle-all-details': 'toggleAllDetails'
+            'click #toggle-all-details': 'toggleAllDetails',
+            'click .remove-single-filter': 'removeOneFilter',
+            'click #reset-all-btn': 'resetAll'
+        },
+
+        removeOneFilter: function (e) {
+            const type = $(e.currentTarget).data('type');
+            const value = $(e.currentTarget).data('value');
+            this.collection.updateFilter(type, value, false);
+        },
+
+        resetAll: function () {
+            this.collection.state.filters = {
+                category: [],
+                warehouse: [],
+                manufacturer: [],
+                model: [],
+                grade: [],
+                capacity: [],
+                color: [],
+                network: [],
+                includeOos: false,
+                search: ''
+            };
+            $('#search-input').val('');
+            this.collection.state.start = 0;
+            this.collection.fetch();
         },
 
         handleOfferStatusClick: function (e) {
@@ -1830,23 +1865,30 @@ $(function () {
     });
 
     const SidebarView = Backbone.View.extend({
-        el: 'body',
+        el: '.drawer-layout-container',
 
         events: {
             'change #filter-oos': 'toggleOos',
             'change .filter-checkbox': 'toggleFilter',
-            'keyup #search-input': 'handleSearch',
-            'click #search-clear': 'clearSearch',
-            'click #filter-toggle-btn': 'toggleDrawer', // Changed to toggle
             'click #close-drawer': 'closeDrawer',
-            'click #drawer-backdrop': 'closeDrawer',
-            'click .remove-filter': 'removeFilterChip',
-            'click .filter-section-header': 'toggleSection'
+            'click #drawer-backdrop': 'handleBackdropClick',
+            'click .filter-section-header': 'toggleSection',
+            'keyup .facet-search-input': 'handleFacetSearch',
+            'click .facet-search-clear': 'clearFacetSearch'
         },
 
         initialize: function () {
+            this.facetSearchTerms = {}; // Track inline search inputs to persist across renders
+            this.lastInteractionTime = 0; // Debounce tracker for iOS synthetic clicks
+
             this.listenTo(this.collection, 'sync', this.renderFilters);
             this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
+
+            // Bind external controls that live outside .drawer-layout-container
+            $('#filter-toggle-btn').on('click', this.toggleDrawer.bind(this));
+            $('#search-input').on('keyup', this.handleSearch.bind(this));
+            $('#search-clear').on('click', this.clearSearch.bind(this));
+            $('#active-filters-container').on('click', '.remove-filter', this.removeFilterChip.bind(this));
 
             // Auto-ingest active offers on sync
             this.listenTo(this.collection, 'sync', () => {
@@ -1895,12 +1937,25 @@ $(function () {
             $('body').css('overflow', '');
         },
 
+        handleBackdropClick: function (e) {
+            // Ignore iOS synthetic clicks that arrive ~300ms after a structural DOM detach
+            if (Date.now() - this.lastInteractionTime < 400) {
+                return;
+            }
+
+            // Strictly enforce that the click actually landed on the backdrop itself, 
+            // and didn't just bubble up from a deleted element inside the drawer.
+            if (e.target && e.target.id === 'drawer-backdrop') {
+                this.closeDrawer();
+            }
+        },
+
         updateBadge: function () {
             const filters = this.collection.state.filters;
             let count = 0;
 
             // Count array filters
-            ['category', 'warehouse', 'manufacturer', 'model', 'grade'].forEach(type => {
+            ['category', 'warehouse', 'grade', 'manufacturer', 'model', 'capacity', 'color', 'network'].forEach(type => {
                 if (filters[type]) count += filters[type].length;
             });
 
@@ -1935,6 +1990,7 @@ $(function () {
         },
 
         toggleOos: function (e) {
+            this.lastInteractionTime = Date.now();
             const isChecked = $(e.currentTarget).is(':checked');
             this.collection.updateFilter('oos', null, isChecked);
         },
@@ -1942,10 +1998,63 @@ $(function () {
         toggleSection: function (e) {
             const header = $(e.currentTarget);
             const section = header.closest('.filter-section');
-            section.toggleClass('expanded');
+            const isExpanding = !section.hasClass('expanded');
+
+            // Accordion logic: close all others
+            this.$('.filter-section').removeClass('expanded');
+
+            if (isExpanding) {
+                section.addClass('expanded');
+                // Focus search input if it exists
+                setTimeout(() => {
+                    section.find('.facet-search-input').focus();
+                }, 50);
+            }
+        },
+
+        handleFacetSearch: function (e) {
+            this.lastInteractionTime = Date.now();
+            const input = $(e.currentTarget);
+            const term = input.val().toLowerCase();
+            const section = input.closest('.filter-section');
+            const sectionBody = input.closest('.filter-section-body');
+            const type = section.data('type');
+
+            // Save term so it persists across API reloads
+            if (type) {
+                this.facetSearchTerms[type] = term;
+            }
+
+            // Toggle clear icon
+            const clearIcon = section.find('.facet-search-clear');
+            if (term.length > 0) {
+                clearIcon.show();
+            } else {
+                clearIcon.hide();
+            }
+
+            sectionBody.find('.checkbox-switch').each(function () {
+                const label = $(this).find('.label-text').text().toLowerCase();
+                if (label.includes(term)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        },
+
+        clearFacetSearch: function (e) {
+            const clearIcon = $(e.currentTarget);
+            const container = clearIcon.closest('.facet-search-container');
+            const input = container.find('.facet-search-input');
+
+            input.val('');
+            input.trigger('keyup'); // Trigger the filter reset
+            input.focus();
         },
 
         toggleFilter: function (e) {
+            this.lastInteractionTime = Date.now();
             const checkbox = $(e.currentTarget);
             const type = checkbox.data('type'); // 'category' or 'warehouse'
             const value = checkbox.val();
@@ -1954,6 +2063,7 @@ $(function () {
         },
 
         handleSearch: _.debounce(function (e) {
+            this.lastInteractionTime = Date.now();
             const term = $(e.currentTarget).val();
             this.toggleClearIcon(term);
             this.collection.updateSearch(term);
@@ -1978,39 +2088,56 @@ $(function () {
             if (!facets) return;
 
             const container = $('#sidebar-filters-container');
+
+            // Persist the currently open section before destroying the HTML
+            const openSectionType = container.find('.filter-section.expanded').data('type') || null;
+
             container.empty();
 
             // Helper to render a group
             const renderGroup = (title, type, items) => {
                 if (!items || items.length === 0) return;
 
-                // Check if any item in this group is checked to auto-expand
-                const isAnyChecked = items.some(item =>
-                    this.collection.state.filters[type] && this.collection.state.filters[type].includes(item.label)
-                );
+                // Check active count for this specific group to show in badge
+                const activeFilters = this.collection.state.filters[type] || [];
+                const activeCount = activeFilters.length;
+                const activeBadgeHtml = activeCount > 0 ? `<span class="badge active-badge" style="background:#0070B9;margin-left:8px;font-size:10px;">${activeCount}</span>` : '';
 
-                // Default expand Category and Warehouse, others collapsed unless active
-                const shouldExpand = isAnyChecked || ['category', 'warehouse'].includes(type);
-                const expandClass = shouldExpand ? 'expanded' : '';
+                // Only expand if it matches the one that was previously open
+                const expandClass = (openSectionType === type) ? 'expanded' : '';
 
                 let html = `
-                    <div class="filter-section ${expandClass}">
+                    <div class="filter-section ${expandClass}" data-type="${type}">
                         <div class="filter-section-header">
-                            <h4>${title}</h4>
+                            <h4>${title}${activeBadgeHtml}</h4>
                             <span class="material-icons chevron">expand_more</span>
                         </div>
                         <div class="filter-section-body">
                 `;
 
-                items.forEach(item => {
-                    const isChecked = this.collection.state.filters[type] && this.collection.state.filters[type].includes(item.label) ? 'checked' : '';
+                // If massive list, add local search
+                const savedTerm = this.facetSearchTerms[type] || '';
+                const clearIconStyle = savedTerm ? '' : 'display: none;';
+                if (items.length > 10) {
                     html += `
-                        <div class="checkbox-switch">
-                            <label>
+                        <div class="facet-search-container" style="padding: 0 10px 10px 10px; position: relative;">
+                            <input type="text" class="facet-search-input form-control input-sm" placeholder="Find ${title.toLowerCase()}..." value="${savedTerm}">
+                            <span class="material-icons facet-search-clear" style="${clearIconStyle} position: absolute; right: 20px; top: 6px; font-size: 16px; color: #999; cursor: pointer;">close</span>
+                        </div>
+                    `;
+                }
+
+                items.forEach(item => {
+                    const isChecked = activeFilters.includes(item.label) ? 'checked' : '';
+                    const displayStyle = (savedTerm && !item.label.toLowerCase().includes(savedTerm.toLowerCase())) ? 'display: none;' : '';
+
+                    html += `
+                        <div class="checkbox-switch" style="padding: 0 10px; ${displayStyle}">
+                            <label style="width: 100%; display: flex; align-items: center; margin-bottom: 0;">
                                 <input type="checkbox" class="filter-checkbox" data-type="${type}" value="${item.label}" ${isChecked}>
                                 <span class="slider round"></span>
-                                <span class="label-text">${item.label}</span>
-                                <span class="badge filter-badge pull-right">${item.count}</span>
+                                <span class="label-text" style="flex-grow: 1;">${item.label}</span>
+                                <span class="badge filter-badge" style="background:#eee;color:#666;">${item.count}</span>
                             </label>
                         </div>
                     `;
@@ -2019,12 +2146,15 @@ $(function () {
                 container.append(html);
             };
 
-            // Order of rendering based on UAT
-            renderGroup('Category', 'category', facets.category);
+            // Order of rendering (Flattened & Re-ordered per user)
             renderGroup('Warehouse', 'warehouse', facets.warehouse);
-            renderGroup('Grade', 'grade', facets.grade);
+            renderGroup('Category', 'category', facets.category);
             renderGroup('Manufacturer', 'manufacturer', facets.manufacturer);
             renderGroup('Model', 'model', facets.model);
+            renderGroup('Grade', 'grade', facets.grade);
+            renderGroup('Capacity', 'capacity', facets.capacity);
+            renderGroup('Color', 'color', facets.color);
+            renderGroup('Carrier / Network', 'network', facets.network);
         }
     });
 
