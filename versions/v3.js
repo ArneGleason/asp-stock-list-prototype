@@ -1839,17 +1839,13 @@ $(function () {
     });
 
     const SidebarView = Backbone.View.extend({
-        el: 'body',
+        el: '.drawer-layout-container',
 
         events: {
             'change #filter-oos': 'toggleOos',
             'change .filter-checkbox': 'toggleFilter',
-            'keyup #search-input': 'handleSearch',
-            'click #search-clear': 'clearSearch',
-            'click #filter-toggle-btn': 'toggleDrawer', // Changed to toggle
             'click #close-drawer': 'closeDrawer',
             'click #drawer-backdrop': 'handleBackdropClick',
-            'click .remove-filter': 'removeFilterChip',
             'click .filter-section-header': 'toggleSection',
             'keyup .facet-search-input': 'handleFacetSearch',
             'click .facet-search-clear': 'clearFacetSearch'
@@ -1860,6 +1856,12 @@ $(function () {
 
             this.listenTo(this.collection, 'sync', this.renderFilters);
             this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
+
+            // Bind external controls that live outside .drawer-layout-container
+            $('#filter-toggle-btn').on('click', this.toggleDrawer.bind(this));
+            $('#search-input').on('keyup', this.handleSearch.bind(this));
+            $('#search-clear').on('click', this.clearSearch.bind(this));
+            $('#active-filters-container').on('click', '.remove-filter', this.removeFilterChip.bind(this));
 
             // Auto-ingest active offers on sync
             this.listenTo(this.collection, 'sync', () => {
