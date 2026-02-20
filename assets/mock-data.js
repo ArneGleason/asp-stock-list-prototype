@@ -273,23 +273,18 @@
             facets.grade = GRADES.map(g => ({ label: g, count: gradeCounts[g] || 0 }));
 
             // Manufacturer (Filter by Cat + Wh + Grade)
-            if (params.category && params.category.includes('Phones')) {
-                let mfrData = gradeData;
-                if (params.grade && params.grade.length) mfrData = mfrData.filter(d => params.grade.includes(d.grade));
-                const mfrCounts = getCounts('manufacturer', mfrData);
-                const uniqueMfrs = Object.keys(mfrCounts).sort();
-                facets.manufacturer = uniqueMfrs.map(m => ({ label: m, count: mfrCounts[m] }));
-            }
+            let mfrData = gradeData;
+            if (params.grade && params.grade.length) mfrData = mfrData.filter(d => params.grade.includes(d.grade));
+            const mfrCounts = getCounts('manufacturer', mfrData);
+            const uniqueMfrs = Object.keys(mfrCounts).sort();
+            facets.manufacturer = uniqueMfrs.map(m => ({ label: m, count: mfrCounts[m] }));
 
             // Model (Filter by Cat + Wh + Grade + Mfr)
-            if (params.manufacturer && params.manufacturer.length) {
-                let modelData = gradeData;
-                if (params.grade && params.grade.length) modelData = modelData.filter(d => params.grade.includes(d.grade));
-                modelData = modelData.filter(d => params.manufacturer.includes(d.manufacturer));
-                const modelCounts = getCounts('rawModel', modelData); // Count by raw model name
-                const uniqueModels = Object.keys(modelCounts).sort();
-                facets.model = uniqueModels.map(m => ({ label: m, count: modelCounts[m] }));
-            }
+            let modelData = mfrData;
+            if (params.manufacturer && params.manufacturer.length) modelData = modelData.filter(d => params.manufacturer.includes(d.manufacturer));
+            const modelCounts = getCounts('rawModel', modelData); // Count by raw model name
+            const uniqueModels = Object.keys(modelCounts).sort();
+            facets.model = uniqueModels.map(m => ({ label: m, count: modelCounts[m] }));
 
             // Capacity (Base)
             const capacityCounts = getCounts('capacity', baseData);

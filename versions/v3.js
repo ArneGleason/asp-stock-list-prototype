@@ -2016,7 +2016,7 @@ $(function () {
             const container = $('#sidebar-filters-container');
 
             // Persist the currently open section before destroying the HTML
-            const openSectionType = container.find('.filter-section.expanded .filter-checkbox').first().data('type') || null;
+            const openSectionType = container.find('.filter-section.expanded').data('type') || null;
 
             container.empty();
 
@@ -2033,7 +2033,7 @@ $(function () {
                 const expandClass = (openSectionType === type) ? 'expanded' : '';
 
                 let html = `
-                    <div class="filter-section ${expandClass}">
+                    <div class="filter-section ${expandClass}" data-type="${type}">
                         <div class="filter-section-header">
                             <h4>${title}${activeBadgeHtml}</h4>
                             <span class="material-icons chevron">expand_more</span>
