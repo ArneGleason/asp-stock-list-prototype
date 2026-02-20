@@ -166,11 +166,14 @@ h6,
     font-size: 15px;
     color: #333;
     font-weight: 600;
+    display: flex;
+    align-items: center;
 }
 
 .filter-section-header .chevron {
     font-size: 20px;
     color: #888;
+    transition: transform 0.2s ease;
 }
 
 .filter-section-body {
@@ -185,7 +188,30 @@ h6,
 
 .filter-section.expanded .chevron {
     transform: rotate(180deg);
-    /* Or 90 depending on icon */
+}
+
+/* Accordion Search & Badges */
+.active-badge {
+    background-color: #0070B9;
+    color: white;
+    font-size: 10px;
+    border-radius: 10px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.facet-search-container input {
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.2s;
+}
+
+.facet-search-container input:focus {
+    border-color: #0070B9;
+    outline: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 3px rgba(0, 112, 185, 0.2);
 }
 
 /* Product Card - New Compact Design */

@@ -1850,7 +1850,8 @@ $(function () {
             'click #close-drawer': 'closeDrawer',
             'click #drawer-backdrop': 'closeDrawer',
             'click .remove-filter': 'removeFilterChip',
-            'click .filter-section-header': 'toggleSection'
+            'click .filter-section-header': 'toggleSection',
+            'keyup .facet-search-input': 'handleFacetSearch'
         },
 
         initialize: function () {
@@ -1909,7 +1910,7 @@ $(function () {
             let count = 0;
 
             // Count array filters
-            ['category', 'warehouse', 'manufacturer', 'model', 'grade'].forEach(type => {
+            ['category', 'warehouse', 'grade', 'manufacturer', 'model', 'capacity', 'color', 'network'].forEach(type => {
                 if (filters[type]) count += filters[type].length;
             });
 
@@ -1951,7 +1952,33 @@ $(function () {
         toggleSection: function (e) {
             const header = $(e.currentTarget);
             const section = header.closest('.filter-section');
-            section.toggleClass('expanded');
+            const isExpanding = !section.hasClass('expanded');
+
+            // Accordion logic: close all others
+            this.$('.filter-section').removeClass('expanded');
+
+            if (isExpanding) {
+                section.addClass('expanded');
+                // Focus search input if it exists
+                setTimeout(() => {
+                    section.find('.facet-search-input').focus();
+                }, 50);
+            }
+        },
+
+        handleFacetSearch: function (e) {
+            const input = $(e.currentTarget);
+            const term = input.val().toLowerCase();
+            const sectionBody = input.closest('.filter-section-body');
+
+            sectionBody.find('.checkbox-switch').each(function () {
+                const label = $(this).find('.label-text').text().toLowerCase();
+                if (label.includes(term)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
         },
 
         toggleFilter: function (e) {
@@ -1993,33 +2020,39 @@ $(function () {
             const renderGroup = (title, type, items) => {
                 if (!items || items.length === 0) return;
 
-                // Check if any item in this group is checked to auto-expand
-                const isAnyChecked = items.some(item =>
-                    this.collection.state.filters[type] && this.collection.state.filters[type].includes(item.label)
-                );
+                // Check active count for this specific group to show in badge
+                const activeFilters = this.collection.state.filters[type] || [];
+                const activeCount = activeFilters.length;
+                const activeBadgeHtml = activeCount > 0 ? `<span class="badge active-badge" style="background:#0070B9;margin-left:8px;font-size:10px;">${activeCount}</span>` : '';
 
-                // Default expand Category and Warehouse, others collapsed unless active
-                const shouldExpand = isAnyChecked || ['category', 'warehouse'].includes(type);
-                const expandClass = shouldExpand ? 'expanded' : '';
-
+                // Everything collapsed by default
                 let html = `
-                    <div class="filter-section ${expandClass}">
+                    <div class="filter-section">
                         <div class="filter-section-header">
-                            <h4>${title}</h4>
+                            <h4>${title}${activeBadgeHtml}</h4>
                             <span class="material-icons chevron">expand_more</span>
                         </div>
                         <div class="filter-section-body">
                 `;
 
-                items.forEach(item => {
-                    const isChecked = this.collection.state.filters[type] && this.collection.state.filters[type].includes(item.label) ? 'checked' : '';
+                // If massive list, add local search
+                if (items.length > 10) {
                     html += `
-                        <div class="checkbox-switch">
-                            <label>
+                        <div class="facet-search-container" style="padding: 0 10px 10px 10px;">
+                            <input type="text" class="facet-search-input form-control input-sm" placeholder="Find ${title.toLowerCase()}...">
+                        </div>
+                    `;
+                }
+
+                items.forEach(item => {
+                    const isChecked = activeFilters.includes(item.label) ? 'checked' : '';
+                    html += `
+                        <div class="checkbox-switch" style="padding: 0 10px;">
+                            <label style="width: 100%; display: flex; align-items: center; margin-bottom: 0;">
                                 <input type="checkbox" class="filter-checkbox" data-type="${type}" value="${item.label}" ${isChecked}>
                                 <span class="slider round"></span>
-                                <span class="label-text">${item.label}</span>
-                                <span class="badge filter-badge pull-right">${item.count}</span>
+                                <span class="label-text" style="flex-grow: 1;">${item.label}</span>
+                                <span class="badge filter-badge" style="background:#eee;color:#666;">${item.count}</span>
                             </label>
                         </div>
                     `;
@@ -2028,12 +2061,15 @@ $(function () {
                 container.append(html);
             };
 
-            // Order of rendering based on UAT
+            // Order of rendering (Flattened)
             renderGroup('Category', 'category', facets.category);
-            renderGroup('Warehouse', 'warehouse', facets.warehouse);
-            renderGroup('Grade', 'grade', facets.grade);
             renderGroup('Manufacturer', 'manufacturer', facets.manufacturer);
             renderGroup('Model', 'model', facets.model);
+            renderGroup('Capacity', 'capacity', facets.capacity);
+            renderGroup('Carrier / Network', 'network', facets.network);
+            renderGroup('Color', 'color', facets.color);
+            renderGroup('Grade', 'grade', facets.grade);
+            renderGroup('Warehouse', 'warehouse', facets.warehouse);
         }
     });
 

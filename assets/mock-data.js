@@ -203,7 +203,18 @@
                 if (params.model && params.model.length > 0 && !params.model.includes(item.rawModel)) return false;
                 if (params.warehouse && params.warehouse.length > 0 && !params.warehouse.includes(item.warehouse)) return false;
                 if (params.grade && params.grade.length > 0 && !params.grade.includes(item.grade)) return false;
+                if (params.capacity && params.capacity.length > 0 && !params.capacity.includes(item.capacity)) return false;
                 if (params.includeOos !== 'true' && params.includeOos !== true && item.quantity === 0) return false;
+
+                // For variant-level attributes (color, network), keep group if ANY variant matches
+                if (params.color && params.color.length > 0) {
+                    const hasColor = item.variants.some(v => params.color.includes(v.color));
+                    if (!hasColor) return false;
+                }
+                if (params.network && params.network.length > 0) {
+                    const hasNetwork = item.variants.some(v => params.network.includes(v.network));
+                    if (!hasNetwork) return false;
+                }
 
                 if (params.search && params.search.length > 0) {
                     const term = params.search.toLowerCase();
@@ -279,6 +290,26 @@
                 const uniqueModels = Object.keys(modelCounts).sort();
                 facets.model = uniqueModels.map(m => ({ label: m, count: modelCounts[m] }));
             }
+
+            // Capacity (Base)
+            const capacityCounts = getCounts('capacity', baseData);
+            const uniqueCapacities = Object.keys(capacityCounts).sort((a, b) => parseInt(a) - parseInt(b));
+            facets.capacity = uniqueCapacities.map(c => ({ label: c, count: capacityCounts[c] }));
+
+            // Variant-level facets (Color, Network)
+            const colorCounts = {};
+            const networkCounts = {};
+            baseData.forEach(d => {
+                // To avoid massive duplication, a simple count of groups matching this attribute
+                const groupColors = new Set(d.variants.map(v => v.color));
+                const groupNetworks = new Set(d.variants.map(v => v.network).filter(n => n && n !== 'N/A'));
+
+                groupColors.forEach(c => { colorCounts[c] = (colorCounts[c] || 0) + 1; });
+                groupNetworks.forEach(n => { networkCounts[n] = (networkCounts[n] || 0) + 1; });
+            });
+
+            facets.color = Object.keys(colorCounts).sort().map(c => ({ label: c, count: colorCounts[c] }));
+            facets.network = Object.keys(networkCounts).sort().map(n => ({ label: n, count: networkCounts[n] }));
 
             // 4. Pagination
             const start = parseInt(params.start) || 0;
