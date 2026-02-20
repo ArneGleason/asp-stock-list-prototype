@@ -254,11 +254,8 @@ $(function () {
             this.$('.pinned-count').text(pinnedCount);
             this.$('.active-count').text(activeCount);
 
-            if (pinnedCount > 0 || activeCount > 0) {
-                this.$el.addClass('visible');
-            } else {
-                this.$el.removeClass('visible');
-            }
+            // Per requirement, the offer bar should always be visible
+            this.$el.addClass('visible');
         },
 
         openPinnedView: function (e) {
@@ -308,10 +305,8 @@ $(function () {
 
         events: {
             'click .drawer-close-btn': 'closeDrawer',
-            'click .drawer-close-btn': 'closeDrawer',
-            'click .offer-item-unpin': 'showUnpinConfirmation',
-            'click .confirm-unpin': 'confirmUnpin',
-            'click .cancel-unpin': 'hideUnpinConfirmation',
+            'click .offer-item-unpin': 'confirmUnpin',
+            'click .offer-item-clear': 'clearItemInputs',
             'change .control-input': 'updateItemState',
             'change .control-input': 'updateItemState',
             'keyup .control-input': 'updateItemState',
@@ -729,47 +724,44 @@ $(function () {
 
         // Re-implementing correctly below:
 
-        showUnpinConfirmation: function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const btn = $(e.currentTarget);
-            const sku = btn.closest('.offer-variant-row').data('sku');
-
-            this.$('.offer-item-unpin').not(btn).popover('destroy');
-            btn.popover('destroy');
-
-            btn.popover({
-                html: true,
-                placement: 'bottom',
-                trigger: 'manual',
-                container: '#offer-drawer',
-                content: `<div style="padding: 5px; text-align: center;">
-                            <button class="btn btn-sm btn-primary confirm-unpin" data-sku="${sku}" style="width: 100%;">UNPIN ITEM</button>
-                          </div>`
-            });
-
-            btn.popover('show');
-
-            const closePopover = (ev) => {
-                if (!$(ev.target).closest('.popover').length && !$(ev.target).closest('.offer-item-unpin').length) {
-                    btn.popover('destroy');
-                    $(document).off('click', closePopover);
-                }
-            };
-            setTimeout(() => { $(document).on('click', closePopover); }, 0);
-        },
-
         confirmUnpin: function (e) {
             e.preventDefault();
             e.stopPropagation();
             const btn = $(e.currentTarget);
-            const sku = btn.data('sku');
+            const sku = btn.closest('.offer-variant-row').data('sku');
+            const row = this.$(`.offer-variant-row[data-sku="${sku}"]`);
 
             if (sku) {
                 OfferBuilderState.togglePin({ sku: sku });
             }
 
-            $('.popover').remove(); // Close all
+            $('.popover').remove(); // Clear any lingering popovers just in case
+
+            // Visually remove the row if it was unpinned and is no longer in the state
+            if (!OfferBuilderState.isPinned(sku)) {
+                row.slideUp(200, function () {
+                    let groupContainer = row.closest('.offer-group');
+                    row.remove();
+                    // If group is empty, remove it too
+                    if (groupContainer.find('.offer-variant-row').length === 0) {
+                        groupContainer.remove();
+                    }
+                });
+            }
+        },
+
+        clearItemInputs: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = $(e.currentTarget);
+            const row = btn.closest('.offer-variant-row');
+
+            // Reset quantity to 1 and empty the price
+            row.find('.qty').val(1);
+            row.find('.price').val('');
+
+            // Trigger change event to save the cleared state and run validation UI updates
+            row.find('.price').trigger('change');
         },
 
         updateItemState: function (e) {
@@ -787,8 +779,6 @@ $(function () {
             if (e.type === 'keyup') {
                 if (!isNaN(price) && price >= 0) {
                     // We could manually update line total here if we want instant feedback
-                    // const total = qty * price;
-                    // row.find('.line-total').text('$' + total.toLocaleString(...));
                 }
                 return;
             }
@@ -824,6 +814,34 @@ $(function () {
                 row.find('.item-total').html(this.formatMoneyHTML(total));
             } else {
                 row.find('.item-total').html(this.formatMoneyHTML(0));
+            }
+
+            // Dynamic Pin / Eraser Icon Toggle
+            const actionBtn = row.find('.offer-item-unpin, .offer-item-clear');
+            let isValidOffer = (qty > 0 && !isNaN(price) && price > 0);
+
+            if (actionBtn.length > 0) {
+                if (isValidOffer) {
+                    // Switch to Eraser
+                    actionBtn.removeClass('offer-item-unpin-btn offer-item-unpin');
+                    actionBtn.addClass('offer-item-clear-btn offer-item-clear text-danger');
+                    actionBtn.attr('title', 'Clear Inputs');
+                    actionBtn.css({ color: '', background: 'none', border: 'none', padding: '4px', display: 'flex', 'align-items': 'center' });
+                    actionBtn.find('.material-icons').text('backspace');
+                } else {
+                    // Switch to Pin
+                    actionBtn.removeClass('offer-item-clear-btn offer-item-clear text-danger');
+                    actionBtn.addClass('offer-item-unpin-btn offer-item-unpin');
+                    actionBtn.attr('title', 'Unpin Item');
+                    actionBtn.css({ color: '#0070B9' });
+                    actionBtn.find('.material-icons').text('bookmark');
+                }
+            }
+
+            // Conditional Draft Badge
+            const draftBadge = row.find('.variant-status-badge.status-draft');
+            if (draftBadge.length > 0) {
+                draftBadge.toggle(isValidOffer);
             }
         },
 
@@ -1097,17 +1115,14 @@ $(function () {
                 const submittedPrice = parseFloat(item.submittedPrice || 0);
                 const status = item.offerStatus || 'Draft';
 
-                if (!isNaN(price) && !isNaN(qty)) {
-                    total += price * qty;
-                }
+                let isReadyToBePlaced = false;
 
                 // Logic for enabling button:
                 // 1. New Offer (Draft): Needs valid Qty > 0 and Price >= 0.
                 if (status === 'Draft' || !item.offerStatus) {
                     // Start disabled until user enters a valid Price > 0
                     if (qty > 0 && price > 0) {
-                        enablePlaceOffer = true;
-                        editCount++;
+                        isReadyToBePlaced = true;
                     }
                 }
                 // 2. Existing Offer (Pending, Countered, etc.): Only if changed.
@@ -1116,8 +1131,15 @@ $(function () {
                 else if (status !== 'In Cart' && status !== 'Accepted') {
                     // Check if values have changed from submitted snapshot
                     if (qty !== submittedQty || Math.abs(price - submittedPrice) > 0.005) {
-                        enablePlaceOffer = true;
-                        editCount++;
+                        isReadyToBePlaced = true;
+                    }
+                }
+
+                if (isReadyToBePlaced) {
+                    enablePlaceOffer = true;
+                    editCount++;
+                    if (!isNaN(price) && !isNaN(qty)) {
+                        total += price * qty;
                     }
                 }
             });
@@ -1579,8 +1601,17 @@ $(function () {
         handleOfferStatusClick: function (e) {
             e.preventDefault();
             e.stopPropagation();
-            const status = $(e.currentTarget).data('status');
-            alert(`Managing offers with status '${status}' is coming soon!`);
+            const sku = $(e.currentTarget).data('sku');
+
+            // Look up the active offer item in OfferBuilderState
+            const offerData = OfferBuilderState.pinnedItems[sku];
+
+            if (offerData) {
+                // Pass raw object, the modal will handle adapting it
+                this.modal.open(offerData, 'edit_offer');
+            } else {
+                console.warn("Could not find offer data for " + sku);
+            }
         },
 
         toggleGroupPin: function (e) {
@@ -2030,52 +2061,144 @@ $(function () {
         events: {
             'click #modal-submit-btn': 'submit',
             'click #modal-mode-toggle': 'toggleMode',
+            'click #modal-cancel-offer': 'cancelOffer',
+            'click #btn-submit-update': 'updateOffer',
+            'click #btn-accept-counter': 'acceptCounter',
+            'click #btn-accept-accepted': 'acceptAccepted',
             'input #modal-qty': 'updateTotal',
-            'input #modal-offer-price': 'updateTotal'
+            'input #modal-offer-price': 'updateTotal',
+            'input #eo-update-qty': 'updateTotal',
+            'input #eo-update-price': 'updateTotal'
         },
 
         initialize: function () {
-            this.model = null; // Currently selected item
-            this.mode = 'buy'; // 'buy' or 'offer'
+            this.model = null; // Backbone model
+            this.rawData = null; // Raw object data
+            this.mode = 'buy'; // 'buy', 'offer', or 'edit_offer'
         },
 
-        open: function (model, initialMode = 'buy') {
-            this.model = model;
+        open: function (modelOrData, initialMode = 'buy') {
+            // Support passing Backbone model or raw data object directly
+            this.model = (modelOrData && typeof modelOrData.toJSON === 'function') ? modelOrData : null;
+            this.rawData = this.model ? this.model.toJSON() : modelOrData;
+
             this.mode = initialMode;
             this.render();
             this.$el.modal('show');
         },
 
         render: function () {
-            const data = this.model.toJSON();
+            const data = this.rawData; // Use normalized data
 
-            // Header
-            this.$('#modal-item-title').text(`${data.manufacturer} ${data.model} ${data.grade}`);
-            this.$('#modal-item-sku').text(`Item #: ${data.sku}`);
+            // Header Elements
+            this.$('#modal-item-title').text(`${data.manufacturer || ''} ${data.model || ''}`.trim());
+            this.$('#modal-item-sku').text(data.sku);
 
-            // Info
-            this.$('#modal-avail-qty').text(data.quantity);
-            this.$('#modal-list-price').text(`$${data.price.toFixed(2)}`);
+            // Badges
+            let badgesHtml = '';
+            const grades = Array.isArray(data.grades) ? data.grades : (data.grade ? [data.grade] : []);
+            grades.forEach(g => badgesHtml += `<span class="chip grade">${g}</span>`);
 
-            // Inputs
-            this.$('#modal-qty').val(1).attr('max', data.quantity);
-            this.$('#modal-offer-price').val(data.price.toFixed(2));
+            const warehouses = Array.isArray(data.warehouses) ? data.warehouses : (data.warehouse ? [data.warehouse] : []);
+            warehouses.forEach(w => badgesHtml += `<span class="chip warehouse">${w}</span>`);
+
+            if (data.capacity) {
+                badgesHtml += `<span class="chip" style="background: #f0f0f0; color: #333;">${data.capacity}</span>`;
+            }
+            this.$('#modal-item-badges').html(badgesHtml);
+
+            // Variant Details row
+            let desc = data.color || data.description || '';
+            if (data.network && data.network !== 'N/A') {
+                desc += ` <span class="text-muted" style="font-size: 0.9em;">(${data.network})</span>`;
+            }
+            this.$('#modal-variant-desc').html(desc || 'Standard');
+
+            // Info Stats
+            const available = data.availableQty !== undefined ? data.availableQty : data.quantity;
+            const listPrice = data.listPrice !== undefined ? data.listPrice : data.price;
+
+            this.$('#modal-avail-qty').text(available);
+            this.$('#modal-list-price').text(`$${listPrice.toFixed(2)}`);
+
+            // Inputs Standard
+            const qtyVal = data.submittedQty || data.offerQty || 1;
+            this.$('#modal-qty').val(qtyVal).attr('max', available);
+
+            const priceVal = data.submittedPrice || data.offerPrice || listPrice || 0;
+            this.$('#modal-offer-price').val(priceVal.toFixed(2));
+            this.$('#modal-buy-list-price').text('$' + listPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+            // Populate Read-Only Edit Offer Fields
+            if (this.mode === 'edit_offer') {
+                this.$('#eo-current-qty').text(data.submittedQty || qtyVal);
+                this.$('#eo-current-price').text(`$${(data.submittedPrice || priceVal).toFixed(2)}`);
+
+                if (data.offerStatus === 'Countered') {
+                    this.$('#eo-counter-qty').text(data.counterQty || 0);
+                    this.$('#eo-counter-price').text(`$${(data.counterPrice || 0).toFixed(2)}`);
+                }
+
+                // Populate Update Inputs
+                this.$('#eo-update-qty').val(data.submittedQty || qtyVal).attr('max', available);
+                this.$('#eo-update-price').val((data.submittedPrice || priceVal).toFixed(2));
+                this.$('#eo-update-avail').text('Avail: ' + available);
+                this.$('#eo-update-list-price').text('List: $' + listPrice.toFixed(2));
+            }
 
             this.updateUIState();
             this.updateTotal();
         },
 
         updateUIState: function () {
+            // Reset all dynamic visibility
+            this.$('#standard-buy-offer-section').hide();
+            this.$('#edit-offer-sections').hide();
+            this.$('#section-current-offer').hide();
+            this.$('#section-counter-offer').hide();
+            this.$('#section-accepted-offer').hide();
+            this.$('#section-update-offer').hide();
+
+            this.$('#offer-disclaimer').hide();
+            this.$('#modal-cancel-offer').hide();
+            this.$('#modal-mode-toggle').hide();
+            this.$('#modal-submit-btn').hide();
+            this.$('#modal-offer-status-badge').hide();
+            this.$('#modal-buy-list-price-container').hide();
+
             if (this.mode === 'buy') {
-                this.$('#modal-offer-price-group').hide();
-                this.$('#offer-disclaimer').hide();
-                this.$('#modal-mode-toggle').text('Make an Offer');
-                this.$('#modal-submit-btn').text('ADD TO CART');
-            } else {
+                this.$('#standard-buy-offer-section').show();
+                this.$('#modal-offer-price-group').hide(); // part of standard section
+                this.$('#modal-buy-list-price-container').show();
+                this.$('#modal-mode-toggle').text('Make an Offer').show();
+                this.$('#modal-submit-btn').text('ADD TO CART').show();
+            } else if (this.mode === 'offer') {
+                this.$('#standard-buy-offer-section').show();
                 this.$('#modal-offer-price-group').show();
                 this.$('#offer-disclaimer').show();
-                this.$('#modal-mode-toggle').text('Buy Now'); // Switch back
-                this.$('#modal-submit-btn').text('ADD TO CART');
+                this.$('#modal-mode-toggle').text('Buy Now').show();
+                this.$('#modal-submit-btn').text('ADD TO OFFERS').show();
+            } else if (this.mode === 'edit_offer') {
+                this.$('#edit-offer-sections').show();
+                this.$('#section-current-offer').show();
+                this.$('#offer-disclaimer').show();
+                this.$('#modal-cancel-offer').show();
+
+                const status = this.rawData.offerStatus || 'Pending';
+
+                // Show Status Badge
+                const statusClass = 'status-' + status.toLowerCase().replace(' ', '-');
+                this.$('#modal-offer-status-badge').removeClass().addClass('variant-status-badge').addClass(statusClass).text(status.toUpperCase()).show();
+
+                if (status === 'Countered') {
+                    this.$('#section-counter-offer').show();
+                } else if (status === 'Accepted') {
+                    this.$('#section-accepted-offer').show();
+                }
+
+                if (['Pending', 'Countered', 'Rejected'].includes(status)) {
+                    this.$('#section-update-offer').show();
+                }
             }
         },
 
@@ -2087,23 +2210,142 @@ $(function () {
         },
 
         updateTotal: function () {
-            const qty = parseInt(this.$('#modal-qty').val()) || 0;
-            let price = this.model.get('price');
+            let qty;
+            let price;
+            const listPrice = this.rawData.listPrice !== undefined ? this.rawData.listPrice : this.rawData.price;
 
-            if (this.mode === 'offer') {
-                price = parseFloat(this.$('#modal-offer-price').val()) || 0;
+            // Extract original offer values for comparison
+            const origQty = this.rawData.submittedQty || this.rawData.offerQty || 1;
+            const origPrice = this.rawData.submittedPrice || this.rawData.offerPrice || listPrice || 0;
+
+            if (this.mode === 'edit_offer') {
+                qty = parseInt(this.$('#eo-update-qty').val()) || 0;
+                price = parseFloat(this.$('#eo-update-price').val()) || 0;
+
+                // Disable submit button if entered values strictly match the original offer
+                if (qty === origQty && Math.abs(price - origPrice) < 0.001) {
+                    this.$('#btn-submit-update').prop('disabled', true);
+                } else {
+                    this.$('#btn-submit-update').prop('disabled', false);
+                }
+            } else {
+                qty = parseInt(this.$('#modal-qty').val()) || 0;
+                price = listPrice;
+
+                if (this.mode === 'offer') {
+                    price = parseFloat(this.$('#modal-offer-price').val()) || 0;
+                }
             }
 
             const total = qty * price;
-            this.$('#modal-total').text(`$${total.toFixed(2)}`);
+            // Target the appropriate total fields
+            const $totalText = this.mode === 'edit_offer' ? this.$('#eo-update-total') : this.$('#modal-total');
+            const $feedbackCaption = this.mode === 'edit_offer' ? this.$('#eo-update-feedback-caption') : this.$('#modal-feedback-caption');
+
+            // Prevent NaN or $0.00 if inputs are cleared.
+            if (isNaN(total)) {
+                $totalText.text(`-`);
+                if ($feedbackCaption.length) $feedbackCaption.text('');
+            } else {
+                $totalText.text('$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+                // Feedback UI
+                if ((this.mode === 'offer' || this.mode === 'edit_offer') && price > 0 && price < listPrice) {
+                    const discount = listPrice - price;
+                    if ($feedbackCaption.length) $feedbackCaption.text(`$${discount.toFixed(2)} off List`);
+                } else {
+                    if ($feedbackCaption.length) $feedbackCaption.text('');
+                }
+            }
         },
 
         submit: function () {
-            const qty = this.$('#modal-qty').val();
-            const action = this.mode === 'buy' ? 'Purchased' : 'Offered';
-            const price = this.mode === 'offer' ? this.$('#modal-offer-price').val() : this.model.get('price');
+            const qty = parseInt(this.$('#modal-qty').val());
 
-            alert(`Mock Action: ${action} ${qty} unit(s) of ${this.model.get('model')} at $${price}. Added to cart.`);
+            if (this.mode === 'buy') {
+                const price = this.rawData.price;
+                const modelName = this.rawData.model || this.rawData.sku;
+                alert(`Mock Action: Purchased ${qty} unit(s) of ${modelName} at $${price}. Added to cart.`);
+            } else if (this.mode === 'offer') {
+                // Offer Mode
+                const offerPrice = parseFloat(this.$('#modal-offer-price').val());
+                const modelData = this.rawData;
+
+                // Format the data to match OfferBuilderState expectations
+                const offerItem = {
+                    sku: modelData.sku || `SKU-TEMP-${Math.floor(Math.random() * 10000)}`, // Fallback for grouped displays
+                    group_id: modelData.group_id || modelData.id,
+                    model: modelData.model,
+                    manufacturer: modelData.manufacturer,
+                    description: modelData.description || ((modelData.color || '') + ' ' + (modelData.network || '')).trim() || modelData.grade,
+                    grade: modelData.grade,
+                    warehouse: modelData.warehouse,
+                    qty: qty,
+                    price: offerPrice,
+                    submittedQty: qty,
+                    submittedPrice: offerPrice,
+                    counterQty: 0,
+                    counterPrice: 0,
+                    availableQty: modelData.quantity,
+                    listPrice: modelData.price,
+                    offerStatus: 'Pending',
+                    isPinned: false
+                };
+
+                // Add to pinned items (but technically active, so isPinned doesn't matter much)
+                OfferBuilderState.pinnedItems[offerItem.sku] = offerItem;
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+            }
+
+            this.$el.modal('hide');
+        },
+
+        cancelOffer: function (e) {
+            if (e) e.preventDefault();
+            if (confirm("Are you sure you want to cancel this offer?")) {
+                delete OfferBuilderState.pinnedItems[this.rawData.sku];
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+                this.$el.modal('hide');
+            }
+        },
+
+        updateOffer: function () {
+            const qty = parseInt(this.$('#eo-update-qty').val());
+            const offerPrice = parseFloat(this.$('#eo-update-price').val());
+
+            this.rawData.offerStatus = 'Pending';
+            this.rawData.submittedQty = qty;
+            this.rawData.submittedPrice = offerPrice;
+            // update working qty/price just in case
+            this.rawData.qty = qty;
+            this.rawData.price = offerPrice;
+
+            OfferBuilderState.save();
+            OfferBuilderState.triggerUpdate();
+            this.$el.modal('hide');
+        },
+
+        acceptCounter: function () {
+            const qty = this.rawData.counterQty;
+            const price = this.rawData.counterPrice;
+            alert(`Mock Action: Accepted Counter Offer and Purchased ${qty} unit(s) of ${this.rawData.sku} at $${price.toFixed(2)}. Added to cart.`);
+
+            this.rawData.offerStatus = 'In Cart';
+            OfferBuilderState.save();
+            OfferBuilderState.triggerUpdate();
+            this.$el.modal('hide');
+        },
+
+        acceptAccepted: function () {
+            const qty = this.rawData.submittedQty;
+            const price = this.rawData.submittedPrice;
+            alert(`Mock Action: Added accepted offer for ${qty} unit(s) of ${this.rawData.sku} at $${price.toFixed(2)} to cart.`);
+
+            this.rawData.offerStatus = 'In Cart';
+            OfferBuilderState.save();
+            OfferBuilderState.triggerUpdate();
             this.$el.modal('hide');
         }
     });
