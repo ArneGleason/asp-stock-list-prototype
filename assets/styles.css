@@ -1,4 +1,12 @@
-/* Fonts */
+/* Fonts & Global Scaffolding */
+html,
+body {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
 body {
     font-family: 'Roboto', sans-serif;
     background-color: #FFFFFF;
@@ -30,7 +38,6 @@ h6,
 /* Drawer Layout */
 .drawer-layout-container {
     display: flex;
-    overflow: hidden;
     /* Prevent horizontal scroll during transition */
     position: relative;
     min-height: 600px;
@@ -1042,7 +1049,9 @@ input:checked~.filter-badge {
             transform: rotate(360deg);
         }
     }
-}/* Offer Status Summary Badges (Group Header) */
+}
+
+/* Offer Status Summary Badges (Group Header) */
 .offer-status-group-summary {
     display: inline-flex;
     align-items: center;
@@ -1073,7 +1082,9 @@ input:checked~.filter-badge {
 .offer-status-group-summary.rejected {
     background-color: #f44336;
     /* Red */
-}/* ... existing styles ... */
+}
+
+/* ... existing styles ... */
 
 /* Unified Status Colors */
 .status-pending {
