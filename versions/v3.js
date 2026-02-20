@@ -1853,6 +1853,7 @@ $(function () {
 
         initialize: function () {
             this.facetSearchTerms = {}; // Track inline search inputs to persist across renders
+            this.lastInteractionTime = 0; // Debounce tracker for iOS synthetic clicks
 
             this.listenTo(this.collection, 'sync', this.renderFilters);
             this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
@@ -1911,6 +1912,11 @@ $(function () {
         },
 
         handleBackdropClick: function (e) {
+            // Ignore iOS synthetic clicks that arrive ~300ms after a structural DOM detach
+            if (Date.now() - this.lastInteractionTime < 400) {
+                return;
+            }
+
             // Strictly enforce that the click actually landed on the backdrop itself, 
             // and didn't just bubble up from a deleted element inside the drawer.
             if (e.target && e.target.id === 'drawer-backdrop') {
@@ -1958,6 +1964,7 @@ $(function () {
         },
 
         toggleOos: function (e) {
+            this.lastInteractionTime = Date.now();
             const isChecked = $(e.currentTarget).is(':checked');
             this.collection.updateFilter('oos', null, isChecked);
         },
@@ -1980,6 +1987,7 @@ $(function () {
         },
 
         handleFacetSearch: function (e) {
+            this.lastInteractionTime = Date.now();
             const input = $(e.currentTarget);
             const term = input.val().toLowerCase();
             const section = input.closest('.filter-section');
@@ -2020,6 +2028,7 @@ $(function () {
         },
 
         toggleFilter: function (e) {
+            this.lastInteractionTime = Date.now();
             const checkbox = $(e.currentTarget);
             const type = checkbox.data('type'); // 'category' or 'warehouse'
             const value = checkbox.val();
@@ -2028,6 +2037,7 @@ $(function () {
         },
 
         handleSearch: _.debounce(function (e) {
+            this.lastInteractionTime = Date.now();
             const term = $(e.currentTarget).val();
             this.toggleClearIcon(term);
             this.collection.updateSearch(term);
