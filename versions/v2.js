@@ -109,6 +109,7 @@ $(function () {
                             description: ((v.color || '') + ' ' + (v.network || '')).trim(),
                             grade: v.grade || groupModel.get('grade'),
                             warehouse: v.warehouse || groupModel.get('warehouse'),
+                            lockStatus: v.lockStatus,
                             qty: v.offerQty || 0,
                             price: v.offerPrice || 0,
                             submittedQty: v.offerQty || 0,
@@ -187,6 +188,7 @@ $(function () {
                             description: v.description || ((v.color || '') + ' ' + (v.network || '')).trim(),
                             grade: v.grade,
                             warehouse: v.warehouse,
+                            lockStatus: v.lockStatus,
                             qty: v.offerQty || 0,
                             price: v.offerPrice || 0,
                             submittedQty: submittedQty,
@@ -1696,6 +1698,7 @@ $(function () {
                     variant.grade = model.get('grade');
                     variant.warehouse = model.get('warehouse');
                     variant.capacity = model.get('capacity'); // Ensure capacity is passed too
+                    variant.lockStatus = found.lockStatus; // Ensure lockStatus is passed too
                 }
             });
 
