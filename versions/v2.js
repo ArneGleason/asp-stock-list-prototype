@@ -509,6 +509,7 @@ $(function () {
                         model: item.model,
                         grade: item.grade || '',
                         description: item.description || item.grade,
+                        lockStatus: item.lockStatus,
                         qty: item.qty,
                         availableQty: item.availableQty || 999, // Match stored property
                         price: offerPrice,
@@ -2417,6 +2418,7 @@ $(function () {
                     description: modelData.description || ((modelData.color || '') + ' ' + (modelData.network || '')).trim() || modelData.grade,
                     grade: modelData.grade,
                     warehouse: modelData.warehouse,
+                    lockStatus: modelData.lockStatus,
                     qty: qty,
                     price: offerPrice,
                     submittedQty: qty,
