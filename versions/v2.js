@@ -1333,6 +1333,7 @@ $(function () {
                 manufacturer: [],
                 model: [],
                 grade: [],
+                lockStatus: [],
                 includeOos: false,
                 search: ''
             }
@@ -1355,6 +1356,7 @@ $(function () {
                     manufacturer: this.state.filters.manufacturer,
                     model: this.state.filters.model,
                     grade: this.state.filters.grade,
+                    lockStatus: this.state.filters.lockStatus,
                     includeOos: this.state.filters.includeOos,
                     search: this.state.filters.search
                 };
@@ -1459,10 +1461,12 @@ $(function () {
                 addChip('Search', 'search', filters.search);
             }
 
-            ['category', 'warehouse', 'manufacturer', 'model', 'grade'].forEach(type => {
+            ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade'].forEach(type => {
                 if (filters[type] && filters[type].length > 0) {
                     filters[type].forEach(val => {
-                        addChip(type.charAt(0).toUpperCase() + type.slice(1), type, val);
+                        let displayName = type.charAt(0).toUpperCase() + type.slice(1);
+                        if (type === 'lockStatus') displayName = 'Lock Status';
+                        addChip(displayName, type, val);
                     });
                 }
             });
@@ -1501,6 +1505,7 @@ $(function () {
                 manufacturer: [],
                 model: [],
                 grade: [],
+                lockStatus: [],
                 includeOos: false,
                 search: ''
             };
@@ -1625,6 +1630,7 @@ $(function () {
                 capacity: [],
                 color: [],
                 network: [],
+                lockStatus: [],
                 includeOos: false,
                 search: ''
             };
@@ -1955,7 +1961,7 @@ $(function () {
             let count = 0;
 
             // Count array filters
-            ['category', 'warehouse', 'grade', 'manufacturer', 'model', 'capacity', 'color', 'network'].forEach(type => {
+            ['category', 'warehouse', 'grade', 'manufacturer', 'model', 'capacity', 'color', 'network', 'lockStatus'].forEach(type => {
                 if (filters[type]) count += filters[type].length;
             });
 
@@ -2148,6 +2154,7 @@ $(function () {
 
             // Order of rendering (Flattened & Re-ordered per user)
             renderGroup('Warehouse', 'warehouse', facets.warehouse);
+            renderGroup('Lock Status', 'lockStatus', facets.lockStatus);
             renderGroup('Category', 'category', facets.category);
             renderGroup('Manufacturer', 'manufacturer', facets.manufacturer);
             renderGroup('Model', 'model', facets.model);

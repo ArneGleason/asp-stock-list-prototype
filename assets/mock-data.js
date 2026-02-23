@@ -57,6 +57,7 @@
             const wh = WAREHOUSES[Math.floor(Math.random() * 3)]; // Limit warehouses
             const color = COLORS[Math.floor(Math.random() * COLORS.length)];
             const network = cat === 'Phones' || cat === 'Tablets' ? NETWORKS[Math.floor(Math.random() * NETWORKS.length)] : 'N/A';
+            const lockStatus = cat === 'Phones' || cat === 'Tablets' ? (Math.random() > 0.5 ? 'LOCKED' : 'UNLOCKED') : null;
 
             const qty = Math.floor(Math.random() * 50);
             let basePrice = 200 + Math.floor(Math.random() * 800);
@@ -140,6 +141,7 @@
                     sku: sku,
                     color: color,
                     network: network,
+                    lockStatus: lockStatus,
                     quantity: qty,
                     price: price,
                     itemNumber: sku,
@@ -152,7 +154,8 @@
                         warehouse: wh,
                         color: color,
                         network: network,
-                        grade: grade
+                        grade: grade,
+                        lockStatus: lockStatus
                     }
                 });
             }
@@ -171,7 +174,7 @@
             g.price = g.minPrice;
 
             // Compute Varying Attributes
-            const attributes = ['color', 'network']; // Candidate attributes to check
+            const attributes = ['color', 'network', 'lockStatus']; // Candidate attributes to check
             const variance = [];
 
             attributes.forEach(attr => {
@@ -179,7 +182,8 @@
                 if (uniqueValues.size > 1) {
                     // Capitalize first letter
                     const label = attr.charAt(0).toUpperCase() + attr.slice(1);
-                    variance.push(label); // e.g. "Color", "Network"
+                    const niceLabel = label === 'LockStatus' ? 'Lock Status' : label;
+                    variance.push(niceLabel); // e.g. "Color", "Network", "Lock Status"
                 }
             });
 
@@ -214,6 +218,10 @@
                 if (params.network && params.network.length > 0) {
                     const hasNetwork = item.variants.some(v => params.network.includes(v.network));
                     if (!hasNetwork) return false;
+                }
+                if (params.lockStatus && params.lockStatus.length > 0) {
+                    const hasLockStatus = item.variants.some(v => params.lockStatus.includes(v.lockStatus));
+                    if (!hasLockStatus) return false;
                 }
 
                 if (params.search && params.search.length > 0) {
@@ -291,20 +299,24 @@
             const uniqueCapacities = Object.keys(capacityCounts).sort((a, b) => parseInt(a) - parseInt(b));
             facets.capacity = uniqueCapacities.map(c => ({ label: c, count: capacityCounts[c] }));
 
-            // Variant-level facets (Color, Network)
+            // Variant-level facets (Color, Network, LockStatus)
             const colorCounts = {};
             const networkCounts = {};
+            const lockStatusCounts = {};
             baseData.forEach(d => {
                 // To avoid massive duplication, a simple count of groups matching this attribute
                 const groupColors = new Set(d.variants.map(v => v.color));
                 const groupNetworks = new Set(d.variants.map(v => v.network).filter(n => n && n !== 'N/A'));
+                const groupLockStatuses = new Set(d.variants.map(v => v.lockStatus).filter(l => l));
 
                 groupColors.forEach(c => { colorCounts[c] = (colorCounts[c] || 0) + 1; });
                 groupNetworks.forEach(n => { networkCounts[n] = (networkCounts[n] || 0) + 1; });
+                groupLockStatuses.forEach(l => { lockStatusCounts[l] = (lockStatusCounts[l] || 0) + 1; });
             });
 
             facets.color = Object.keys(colorCounts).sort().map(c => ({ label: c, count: colorCounts[c] }));
             facets.network = Object.keys(networkCounts).sort().map(n => ({ label: n, count: networkCounts[n] }));
+            facets.lockStatus = Object.keys(lockStatusCounts).sort().map(l => ({ label: l, count: lockStatusCounts[l] }));
 
             // 4. Pagination
             const start = parseInt(params.start) || 0;
