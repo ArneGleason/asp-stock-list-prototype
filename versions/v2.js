@@ -53,6 +53,7 @@ $(function () {
                     description: variant.description || ((variant.color || '') + ' ' + (variant.network || '')).trim(),
                     grade: variant.grade,
                     warehouse: variant.warehouse,
+                    lockStatus: variant.lockStatus,
                     qty: variant.offerQty || 0,
                     price: variant.offerPrice || 0,
                     submittedQty: variant.offerQty || 0, // Snapshot for comparison
