@@ -232,8 +232,16 @@
                 return true;
             });
 
-            // 2. Sorting (Default to Model ASC)
-            filtered.sort((a, b) => a.model.localeCompare(b.model));
+            // 2. Sorting (Default to group-description, group-grade, group-warehouse)
+            filtered.sort((a, b) => {
+                const descCmp = a.model.localeCompare(b.model);
+                if (descCmp !== 0) return descCmp;
+
+                const gradeCmp = a.grade.localeCompare(b.grade);
+                if (gradeCmp !== 0) return gradeCmp;
+
+                return a.warehouse.localeCompare(b.warehouse);
+            });
 
             // 3. Facets (Simplified Reuse)
             // Just returning counts based on the current filtered set implies "narrowing" behavior. 
