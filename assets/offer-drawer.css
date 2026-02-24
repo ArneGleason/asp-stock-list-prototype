@@ -857,3 +857,93 @@
     background-color: #0071e3;
     color: white;
 }
+
+/* Status Filter Dropdown */
+.drawer-status-filter .dropdown-toggle {
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+    justify-content: space-between;
+}
+
+.drawer-status-filter .dropdown-menu {
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border: 1px solid #ddd;
+    margin-top: 5px;
+    min-width: 160px;
+    padding: 5px 0;
+}
+
+.status-filter-option {
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+}
+
+.status-filter-option:hover {
+    background-color: #f5f5f5;
+}
+
+.status-filter-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Color definitions match variant-status-badge */
+.status-filter-dot.draft {
+    background-color: #e2e3e5;
+}
+
+.status-filter-dot.pending {
+    background-color: #ff9800;
+}
+
+.status-filter-dot.countered {
+    background-color: #2196f3;
+}
+
+.status-filter-dot.accepted {
+    background-color: #4caf50;
+}
+
+.status-filter-dot.rejected {
+    background-color: #f44336;
+}
+
+.status-filter-dot.in-cart {
+    background-color: #2e7d32;
+}
+
+.status-filter-count {
+    font-size: 11px;
+    color: #888;
+    background: #eee;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+}
+
+/* Empty State Helper */
+.action-clear-filters {
+    color: #0070B9;
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.action-clear-filters:hover {
+    color: #005a94;
+    text-decoration: none;
+}

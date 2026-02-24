@@ -488,11 +488,27 @@
         </div>
         <div class="drawer-body">
             <div class="drawer-body-search-container"
-                style="padding: 10px 15px; position: relative; background: transparent;">
-                <input type="text" class="form-control drawer-search-input" placeholder="Search variants..."
-                    style="background: white;">
-                <span class="material-icons drawer-search-clear"
-                    style="display: none; position: absolute; right: 25px; top: 16px; font-size: 16px; color: #999; cursor: pointer;">close</span>
+                style="padding: 10px 15px; background: transparent; display: flex; gap: 10px; align-items: center;">
+
+                <!-- Status Filter Dropdown (Hidden initially, shown by JS only on Active tab) -->
+                <div class="dropdown drawer-status-filter" style="display: none;">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="statusFilterDropdown"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="true"
+                        style="background: white; border-color: #ccc;">
+                        <span class="filter-label">- status -</span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="statusFilterDropdown">
+                        <!-- Options injected by JS -->
+                    </ul>
+                </div>
+
+                <div style="flex-grow: 1; position: relative;">
+                    <input type="text" class="form-control drawer-search-input" placeholder="Search variants..."
+                        style="background: white;">
+                    <span class="material-icons drawer-search-clear"
+                        style="display: none; position: absolute; right: 10px; top: 9px; font-size: 16px; color: #999; cursor: pointer;">close</span>
+                </div>
             </div>
             <div class="offer-item-list">
                 <!-- Items will be injected here via JS Template -->

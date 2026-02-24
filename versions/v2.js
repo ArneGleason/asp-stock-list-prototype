@@ -341,11 +341,14 @@ $(function () {
             'click .action-add-to-cart-menu': 'handleMenuAddToCart',
             'click .view-tab': 'switchView',
             'keyup .drawer-search-input': 'handleDrawerSearch',
-            'click .drawer-search-clear': 'clearDrawerSearch'
+            'click .drawer-search-clear': 'clearDrawerSearch',
+            'click .status-filter-option': 'setStatusFilter',
+            'click .action-clear-filters': 'clearSearchAndFilter'
         },
 
         viewMode: 'pinned', // 'pinned' (was selected) or 'active'
         searchTerm: '',
+        statusFilter: '',
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
@@ -419,6 +422,32 @@ $(function () {
             this.render();
         },
 
+        setStatusFilter: function (e) {
+            e.preventDefault();
+            const option = $(e.currentTarget);
+            const status = option.data('status');
+
+            this.statusFilter = status || '';
+
+            // Update dropdown button text
+            const label = status ? status : '- status -';
+            this.$('#statusFilterDropdown .filter-label').text(label);
+
+            this.render();
+        },
+
+        clearSearchAndFilter: function (e) {
+            e.preventDefault();
+            this.$('.drawer-search-input').val('');
+            this.$('.drawer-search-clear').hide();
+            this.searchTerm = '';
+
+            this.statusFilter = '';
+            this.$('#statusFilterDropdown .filter-label').text('- status -');
+
+            this.render();
+        },
+
         render: function () {
             const listContainer = this.$('.offer-item-list');
             listContainer.empty();
@@ -438,12 +467,50 @@ $(function () {
 
             // Filter based on viewMode
             let items = [];
+            let activeItemsBase = []; // Unfiltered active items for dropdown counts
+
             if (this.viewMode === 'pinned') {
                 // Show pinned items
                 items = allItems.filter(item => item.isPinned);
+                this.$('.drawer-status-filter').hide();
             } else if (this.viewMode === 'active') {
                 // Show items with active status (not Draft)
-                items = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft');
+                activeItemsBase = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft');
+                items = [...activeItemsBase];
+                this.$('.drawer-status-filter').show();
+
+                // Populate Status Filter Dropdown
+                const statusCounts = _.countBy(activeItemsBase, 'offerStatus');
+                const menu = this.$('.drawer-status-filter .dropdown-menu');
+                menu.empty();
+
+                // "Clear" option
+                menu.append(`
+                    <li>
+                        <a class="status-filter-option" data-status="">
+                            - status -
+                        </a>
+                    </li>
+                `);
+
+                // Add an option for each status present
+                Object.keys(statusCounts).sort().forEach(status => {
+                    const statusClass = status.toLowerCase().replace(' ', '-');
+                    menu.append(`
+                        <li>
+                            <a class="status-filter-option" data-status="${status}">
+                                <span class="status-filter-dot ${statusClass}"></span>
+                                ${status}
+                                <span class="status-filter-count">${statusCounts[status]}</span>
+                            </a>
+                        </li>
+                    `);
+                });
+
+                // Apply Status Filter
+                if (this.statusFilter) {
+                    items = items.filter(item => item.offerStatus === this.statusFilter);
+                }
             }
 
             // Apply Text Search Filter
@@ -462,9 +529,16 @@ $(function () {
             }
 
             if (items.length === 0) {
-                const emptyMsg = this.viewMode === 'pinned'
-                    ? (this.searchTerm ? 'No matching pinned items.' : 'No pinned items.')
-                    : (this.searchTerm ? 'No matching active offers.' : 'No active offers.');
+                let emptyMsg = '';
+                if (this.viewMode === 'pinned') {
+                    emptyMsg = this.searchTerm ? `No pinned items matching "${this.searchTerm}". <br><a href="#" class="action-clear-filters" style="display:inline-block; margin-top:8px;">Clear search</a>` : 'No pinned items.';
+                } else {
+                    if (this.searchTerm || this.statusFilter) {
+                        emptyMsg = `No active offers matching criteria. <br><a href="#" class="action-clear-filters" style="display:inline-block; margin-top:8px;">Clear search & filters</a>`;
+                    } else {
+                        emptyMsg = 'No active offers.';
+                    }
+                }
                 listContainer.html(`<div class="text-center text-muted" style="padding: 20px;">${emptyMsg}</div>`);
                 this.$('.offer-total-amount').text('$0.00');
                 this.$('.btn-place-offer').prop('disabled', true);
