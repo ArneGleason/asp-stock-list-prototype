@@ -339,10 +339,13 @@ $(function () {
             'click .action-cancel-offer': 'cancelOffer',
             'click .add-to-cart-action': 'handleMenuAddToCart',
             'click .action-add-to-cart-menu': 'handleMenuAddToCart',
-            'click .view-tab': 'switchView'
+            'click .view-tab': 'switchView',
+            'keyup .drawer-search-input': 'handleDrawerSearch',
+            'click .drawer-search-clear': 'clearDrawerSearch'
         },
 
         viewMode: 'pinned', // 'pinned' (was selected) or 'active'
+        searchTerm: '',
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
@@ -395,6 +398,27 @@ $(function () {
             this.render();
         },
 
+        handleDrawerSearch: function (e) {
+            const input = $(e.currentTarget);
+            this.searchTerm = input.val().toLowerCase();
+
+            const clearIcon = this.$('.drawer-search-clear');
+            if (this.searchTerm.length > 0) {
+                clearIcon.show();
+            } else {
+                clearIcon.hide();
+            }
+
+            this.render();
+        },
+
+        clearDrawerSearch: function (e) {
+            this.$('.drawer-search-input').val('');
+            this.$('.drawer-search-clear').hide();
+            this.searchTerm = '';
+            this.render();
+        },
+
         render: function () {
             const listContainer = this.$('.offer-item-list');
             listContainer.empty();
@@ -422,10 +446,25 @@ $(function () {
                 items = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft');
             }
 
+            // Apply Text Search Filter
+            if (this.searchTerm) {
+                items = items.filter(item => {
+                    const searchString = `
+                        ${item.manufacturer || ''} 
+                        ${item.model || ''} 
+                        ${item.capacity || ''} 
+                        ${item.grade || ''} 
+                        ${item.warehouse || ''} 
+                        ${item.description || ''}
+                    `.toLowerCase();
+                    return searchString.includes(this.searchTerm);
+                });
+            }
+
             if (items.length === 0) {
                 const emptyMsg = this.viewMode === 'pinned'
-                    ? 'No pinned items.'
-                    : 'No active offers.';
+                    ? (this.searchTerm ? 'No matching pinned items.' : 'No pinned items.')
+                    : (this.searchTerm ? 'No matching active offers.' : 'No active offers.');
                 listContainer.html(`<div class="text-center text-muted" style="padding: 20px;">${emptyMsg}</div>`);
                 this.$('.offer-total-amount').text('$0.00');
                 this.$('.btn-place-offer').prop('disabled', true);
@@ -653,26 +692,35 @@ $(function () {
             if (e) e.preventDefault();
             this.$('#drawer-overflow-menu').removeClass('open');
 
-            if (confirm("Are you sure you want to reset all offer demo data? This will clear your current offers and generate new random statuses for items.")) {
+            console.log("Resetting Demo Data...");
 
-                // 1. Clear locally pinned items completely
-                OfferBuilderState.clearAll();
+            // 1. Clear locally pinned items completely
+            OfferBuilderState.clearAll();
 
-                // 2. Reset the mock server data and get all generated offers
-                if (window.MockApi && window.MockApi.resetDemoData) {
-                    const allVariants = window.MockApi.resetDemoData();
+            // 2. Reset the mock server data and get all generated offers
+            if (window.MockApi && window.MockApi.resetDemoData) {
+                const selectedVariants = window.MockApi.resetDemoData();
 
-                    // Manually populate group details for the variants based on ALL_DATA
-                    // (The import method expects manufacturer, model, etc.)
-                    // Actually, MockApi's returned variants should probably have this info
-                    // Let's just pass them directly, importActiveOffers will save them.
-                    OfferBuilderState.importActiveOffers(allVariants);
-                }
+                // Import the newly generated items
+                OfferBuilderState.importActiveOffers(selectedVariants);
 
-                // 3. Re-fetch stock data to update the UI paginated view
-                if (window.stockCollection) {
-                    window.stockCollection.fetch({ reset: true });
-                }
+                // Switch view to Active so the user sees the generated statuses
+                this.viewMode = 'active';
+                this.$('.view-tab').removeClass('active');
+                this.$('.view-tab[data-view="active"]').addClass('active');
+
+                // Clear any previous search queries that would hide these items
+                this.searchTerm = '';
+                this.$('.drawer-search-input').val('');
+                this.$('.drawer-search-clear').hide();
+
+                // Force render manually since the collection fetch might take 300ms
+                this.render();
+            }
+
+            // 3. Re-fetch stock data to update the UI paginated view
+            if (window.stockCollection) {
+                window.stockCollection.fetch({ reset: true });
             }
         },
 
