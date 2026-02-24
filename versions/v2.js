@@ -9,6 +9,8 @@ $(function () {
 
     // --- Models & Collections ---
 
+    window.isExpandedAll = false;
+
     const OfferBuilderState = {
         pinnedItems: {}, // Map of SKU -> { item data }
 
@@ -1601,6 +1603,12 @@ $(function () {
                 this.$el.append(this.template(data));
             });
 
+            // Apply global expansion state if enabled
+            if (window.isExpandedAll) {
+                this.$('.card-body').show();
+                this.$('.chevron').addClass('expanded');
+            }
+
             // Re-bind events for expanded content if needed
             this.updatePinIcons();
             return this;
@@ -1747,24 +1755,6 @@ $(function () {
                     btn.css('color', '#8BA1A7');
                 }
             });
-        },
-
-        toggleAllDetails: function (e) {
-            const btn = $(e.currentTarget);
-            // Check text content instead of html to ignore icons
-            const isCollapsing = btn.text().includes('Collapse');
-
-            if (isCollapsing) {
-                // Collapse All
-                this.$('.card-body').slideUp(200);
-                this.$('.chevron').removeClass('expanded');
-                btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_more</span> Expand All');
-            } else {
-                // Expand All
-                this.$('.card-body').slideDown(200);
-                this.$('.chevron').addClass('expanded');
-                btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All');
-            }
         },
 
         toggleDetails: function (e) {
@@ -2513,7 +2503,6 @@ $(function () {
     new OfferBarView();
     new OfferDrawerView();
 
-    // Global Controls View (since buttons are outside stock-list-container)
     const GlobalControlsView = Backbone.View.extend({
         el: '.results-controls',
         events: {
@@ -2524,10 +2513,12 @@ $(function () {
             const isCollapsing = btn.text().includes('Collapse');
 
             if (isCollapsing) {
+                window.isExpandedAll = false;
                 $('.card-body').slideUp(200);
                 $('.chevron').removeClass('expanded');
                 btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_more</span> Expand All');
             } else {
+                window.isExpandedAll = true;
                 $('.card-body').slideDown(200);
                 $('.chevron').addClass('expanded');
                 btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All');

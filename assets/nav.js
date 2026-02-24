@@ -53,7 +53,7 @@
         return `
             <div class="proto-nav-bar">
                 <div class="proto-nav-left">
-                    <span class="proto-brand">ASP Prototype</span>
+                    <span class="proto-brand">SL PROTOTYPE</span>
                     <button id="proto-nav-toggle" class="proto-nav-toggle">
                         <span class="material-icons">menu</span>
                         <span class="current-label-mobile">${current.label}</span>

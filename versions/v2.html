@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V2 - Stock List | Hyla UAT Clone</title>
+    <title>V2 - Stock List Prototype</title>
 
     <!-- Bootstrap 3.4.1 -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
@@ -37,7 +37,7 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <a class="navbar-brand" href="#">ASP</a>
+                <a class="navbar-brand" href="#">LOGO</a>
             </div>
             <div id="navbar" class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
@@ -130,7 +130,7 @@
                         <!-- Toggle All Button -->
                         <button class="btn btn-default btn-sm" id="toggle-all-details" style="margin-right: 10px;">
                             <span class="material-icons"
-                                style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All
+                                style="font-size: 16px; vertical-align: bottom;">unfold_more</span> Expand All
                         </button>
                         <div id="top-pagination"></div>
                     </div>
@@ -390,7 +390,7 @@
             <!-- Header (Collapsed) -->
             <div class="card-header-row" data-id="<%= id %>">
                 <div class="header-left">
-                    <span class="material-icons chevron expanded">chevron_right</span>
+                    <span class="material-icons chevron">chevron_right</span>
                     <span class="product-title"><%= model %></span> <!-- already includes capacity -->
                     <span class="chip grade"><%= grade %></span>
                     <span class="chip warehouse"><%= warehouse %></span>
@@ -412,7 +412,7 @@
             </div>
 
             <!-- Body (Expanded) -->
-            <div class="card-body" style="display: block;">
+            <div class="card-body" style="display: none;">
                 <% _.each(variants, function(variant) { %>
                     <div class="variant-row">
                         <div class="variant-info">
