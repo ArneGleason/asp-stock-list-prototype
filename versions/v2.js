@@ -226,6 +226,7 @@ $(function () {
         events: {
             'click .btn-view-pinned': 'openPinnedView',
             'click .btn-view-active': 'openActiveView',
+            'click .btn-cart': 'openCartView', // Navigate to Cart Page
             'click .offer-bar-menu-btn': 'toggleMenu',
             'click .action-clear-pinned': 'clearPinned'
         },
@@ -250,8 +251,8 @@ $(function () {
             // Count Pinned
             const pinnedCount = allItems.filter(item => item.isPinned).length;
 
-            // Count Active (Post-Draft)
-            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
+            // Count Active (Post-Draft, Not In Cart)
+            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart').length;
 
             // Count Cart (Ready)
             const cartCount = allItems.filter(item => item.offerStatus === 'In Cart').length;
@@ -280,6 +281,11 @@ $(function () {
         openActiveView: function (e) {
             e.preventDefault();
             Backbone.trigger('offerDrawer:open', 'active');
+        },
+
+        openCartView: function (e) {
+            e.preventDefault();
+            window.location.href = 'v2-cart.html';
         },
 
         toggleMenu: function (e) {
@@ -457,7 +463,7 @@ $(function () {
 
             // Calculate Counts for Tabs
             const pinnedCount = allItems.filter(item => item.isPinned).length;
-            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
+            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart').length;
 
             console.log('Drawer Render: Pinned=', pinnedCount, 'Active=', activeCount);
 
@@ -474,8 +480,8 @@ $(function () {
                 items = allItems.filter(item => item.isPinned);
                 this.$('.drawer-status-filter').hide();
             } else if (this.viewMode === 'active') {
-                // Show items with active status (not Draft)
-                activeItemsBase = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft');
+                // Show items with active status (not Draft and not In Cart)
+                activeItemsBase = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart');
                 items = [...activeItemsBase];
                 this.$('.drawer-status-filter').show();
 
@@ -2517,9 +2523,34 @@ $(function () {
             const qty = parseInt(this.$('#modal-qty').val());
 
             if (this.mode === 'buy') {
-                const price = this.rawData.price;
-                const modelName = this.rawData.model || this.rawData.sku;
-                alert(`Mock Action: Purchased ${qty} unit(s) of ${modelName} at $${price}. Added to cart.`);
+                const price = this.rawData.listPrice !== undefined ? this.rawData.listPrice : this.rawData.price;
+                const modelData = this.rawData;
+
+                const cartItem = {
+                    sku: modelData.sku || `SKU-TEMP-${Math.floor(Math.random() * 10000)}`,
+                    group_id: modelData.group_id || modelData.id,
+                    model: modelData.model,
+                    manufacturer: modelData.manufacturer,
+                    description: modelData.description || ((modelData.color || '') + ' ' + (modelData.network || '')).trim() || modelData.grade,
+                    grade: modelData.grade,
+                    warehouse: modelData.warehouse,
+                    lockStatus: modelData.lockStatus,
+                    qty: qty,
+                    price: price,
+                    submittedQty: qty,
+                    submittedPrice: price,
+                    counterQty: 0,
+                    counterPrice: 0,
+                    availableQty: modelData.quantity,
+                    listPrice: modelData.price,
+                    offerStatus: 'In Cart',
+                    isPinned: false
+                };
+
+                OfferBuilderState.pinnedItems[cartItem.sku] = cartItem;
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+
             } else if (this.mode === 'offer') {
                 // Offer Mode
                 const offerPrice = parseFloat(this.$('#modal-offer-price').val());

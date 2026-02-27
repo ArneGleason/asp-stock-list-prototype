@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V2 - Cart</title>
+
+    <!-- Bootstrap 3.4.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Custom Styles (Reuse existing nav/layout) -->
+    <link rel="stylesheet" href="../assets/styles.css?v=2.0">
+    <!-- Cart Specific Styles -->
+    <link rel="stylesheet" href="../assets/cart.css?v=2.0">
+</head>
+
+<body style="background-color: #f5f5f5;">
+    <!-- Shared Sub-Nav placeholder -->
+    <div id="prototype-nav"></div>
+    <div
+        style="position:fixed; top:0; right:0; z-index:9999; background:rgba(0,0,0,0.5); color:white; padding:2px 5px; font-size:10px; pointer-events:none;">
+        v2.2</div>
+
+    <!-- Header / Navigation -->
+    <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                    aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="v2.html">LOGO</a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li><a href="v2.html">STOCK LIST</a></li>
+                    <li><a href="#">AUCTION</a></li>
+                    <li><a href="#">PO</a></li>
+                    <li><a href="#">GRADING SCALE</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#">HELP</a></li>
+                    <li><a href="#">ACCOUNT <span class="caret"></span></a></li>
+                    <li><a href="#">LOGOUT</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Cart Main Content Container -->
+    <div class="container main-content-area cart-container">
+
+        <!-- Cart Header -->
+        <div class="row" style="margin-bottom: 20px;">
+            <div class="col-xs-12">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <a href="v2.html" class="btn btn-default"><span class="material-icons"
+                            style="vertical-align: middle; font-size: 18px; margin-right: 4px;">arrow_back</span> Back
+                        to Stock List</a>
+                    <h2 style="margin: 0; font-family: 'Roboto', sans-serif; font-weight: 500; color: #333;">Cart</h2>
+                </div>
+                <p class="text-muted" style="margin-top: 5px;">You can only check out items from one warehouse at a
+                    time.</p>
+            </div>
+        </div>
+
+        <!-- Warehouse Tabs & Content Area -->
+        <div id="cart-app">
+            <div class="text-center" style="padding: 50px;">
+                <div class="loader"></div>
+                <p class="text-muted" style="margin-top: 10px;">Loading cart...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Success Modal Template -->
+    <div class="modal fade" id="checkout-success-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content text-center" style="padding: 30px 20px;">
+                <div style="font-size: 48px; color: #4CAF50; margin-bottom: 10px;">
+                    <span class="material-icons" style="font-size: inherit;">check_circle</span>
+                </div>
+                <h3 style="margin-top: 0; color: #333;">Success!</h3>
+                <p class="text-muted">Items successfully checked out.</p>
+                <button type="button" class="btn btn-primary" data-dismiss="modal"
+                    style="margin-top: 15px;">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.1/underscore-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.0/backbone-min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+    <!-- App Logic -->
+    <script src="v2-cart.js?v=2.0"></script>
+    <script src="../assets/nav.js?v=2.0"></script>
+</body>
+
+</html>
