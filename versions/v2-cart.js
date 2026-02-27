@@ -221,20 +221,7 @@ $(function () {
                 html += `
                     <button class="cart-tab ${isActive}" data-warehouse="${wh}">
                         <span class="cart-tab-title">${data.name}</span>
-                        <div class="cart-tab-stats">
-                            <div class="cart-tab-stat">
-                                <span class="cart-tab-stat-label">Unique SKUs</span>
-                                <span class="cart-tab-stat-value">${data.uniqueSkus.size}</span>
-                            </div>
-                            <div class="cart-tab-stat">
-                                <span class="cart-tab-stat-label">Total Qty</span>
-                                <span class="cart-tab-stat-value">${data.totalQty}</span>
-                            </div>
-                            <div class="cart-tab-stat">
-                                <span class="cart-tab-stat-label">Value</span>
-                                <span class="cart-tab-stat-value">$${data.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                        </div>
+                        <span class="badge" style="background-color: ${wh === this.activeWarehouse ? '#0070B9' : '#999'};">${data.uniqueSkus.size}</span>
                     </button>
                 `;
             });
