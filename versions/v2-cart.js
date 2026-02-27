@@ -86,13 +86,35 @@ $(function () {
             'change .cart-item-checkbox-input': 'updateSelectionState',
             'click .btn-remove-selected': 'removeSelected',
             'click .btn-remove-item': 'removeItem',
-            'click .btn-checkout': 'checkout'
+            'click .btn-checkout': 'checkout',
+            'keyup .cart-search-input': 'handleSearch',
+            'click .cart-search-clear': 'clearSearch'
         },
 
         initialize: function () {
             CartState.init();
             this.activeWarehouse = null;
             this.selectedSkus = new Set();
+            this.searchTerm = '';
+            this.render();
+        },
+
+        handleSearch: function (e) {
+            const input = $(e.currentTarget);
+            this.searchTerm = input.val().toLowerCase();
+            this.render();
+            // Refocus input after render
+            this.$('.cart-search-input').focus();
+
+            // Put cursor at end
+            const el = this.$('.cart-search-input')[0];
+            if (el && typeof el.selectionStart === "number") {
+                el.selectionStart = el.selectionEnd = el.value.length;
+            }
+        },
+
+        clearSearch: function () {
+            this.searchTerm = '';
             this.render();
         },
 
@@ -230,7 +252,27 @@ $(function () {
             // Build Active Warehouse Content
             const activeData = warehouses[this.activeWarehouse];
 
+            // Active Warehouse filtering
+            let activeItems = activeData.items;
+            if (this.searchTerm) {
+                const term = this.searchTerm.toLowerCase();
+                activeItems = activeItems.filter(item => {
+                    const searchString = `
+                        ${item.manufacturer || ''} 
+                        ${item.model || ''} 
+                        ${item.grade || ''} 
+                        ${item.sku || ''}
+                        ${item.description || ''}
+                    `.toLowerCase();
+                    return searchString.includes(term);
+                });
+            }
+
             html += `
+                <div class="cart-search-container">
+                    <input type="text" class="form-control cart-search-input" placeholder="Search items in ${this.activeWarehouse}..." value="${this.searchTerm || ''}">
+                    <span class="material-icons cart-search-clear" style="${this.searchTerm ? 'display: block;' : 'display: none;'}">close</span>
+                </div>
                 <div class="cart-warehouse-content" style="flex-grow: 1; display: flex; flex-direction: column;">
                     <div style="flex-grow: 1;">
                         <div class="cart-toolbar">
@@ -247,7 +289,11 @@ $(function () {
                         <div class="cart-items-list">
             `;
 
-            activeData.items.forEach(item => {
+            if (activeItems.length === 0) {
+                html += `<div class="text-center text-muted" style="padding: 20px;">No items match your search.</div>`;
+            }
+
+            activeItems.forEach(item => {
                 const qty = parseInt(item.submittedQty || item.qty || 0);
                 const price = parseFloat(item.submittedPrice || item.price || 0);
                 const isSelected = this.selectedSkus.has(item.sku) ? 'checked' : '';
