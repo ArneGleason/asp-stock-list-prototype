@@ -284,3 +284,35 @@
 .cart-search-clear:hover {
     color: #333;
 }
+
+/* Custom Back Button */
+.cart-back-btn {
+    display: flex;
+    align-items: center;
+    color: #555;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.cart-back-btn:hover {
+    color: #0070B9;
+    text-decoration: none;
+}
+
+.cart-back-icon {
+    font-size: 36px;
+    /* Large chevron */
+    margin-right: -4px;
+    /* Pull label slightly closer */
+    font-weight: 300;
+}
+
+.cart-back-label {
+    font-family: 'Roboto', sans-serif;
+    font-size: 11px;
+    line-height: 1.1;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
