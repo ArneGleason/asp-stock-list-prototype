@@ -325,6 +325,7 @@ $(function () {
 
         events: {
             'click .drawer-close-btn': 'closeDrawer',
+            'click .btn-view-cart-drawer': 'openCartView',
             'click .offer-item-unpin': 'confirmUnpin',
             'click .offer-item-clear': 'clearItemInputs',
             'change .control-input': 'updateItemState',
@@ -464,12 +465,19 @@ $(function () {
             // Calculate Counts for Tabs
             const pinnedCount = allItems.filter(item => item.isPinned).length;
             const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart').length;
+            const cartCount = allItems.filter(item => item.offerStatus === 'In Cart').length;
 
-            console.log('Drawer Render: Pinned=', pinnedCount, 'Active=', activeCount);
+            console.log('Drawer Render: Pinned=', pinnedCount, 'Active=', activeCount, 'Ready=', cartCount);
 
             // Update Tab Badges
             this.$('.view-tab[data-view="pinned"] .badge').text(pinnedCount);
             this.$('.view-tab[data-view="active"] .badge').text(activeCount);
+
+            // Update Cart Button Badge
+            const cartBtn = this.$('.btn-view-cart-drawer');
+            cartBtn.find('.badge').text(cartCount);
+            cartBtn.show();
+            cartBtn.toggleClass('has-items', cartCount > 0);
 
             // Filter based on viewMode
             let items = [];
@@ -677,6 +685,12 @@ $(function () {
             $('.drawer-backdrop').removeClass('visible');
             $('body').css('overflow', '');
             this.$('#drawer-overflow-menu').removeClass('open');
+        },
+
+        openCartView: function (e) {
+            e.preventDefault();
+            // Need to close drawer visually before redirecting maybe? Local change is immediate
+            window.location.href = 'v2-cart.html';
         },
 
         toggleMenu: function (e) {

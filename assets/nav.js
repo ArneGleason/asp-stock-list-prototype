@@ -22,7 +22,11 @@
         const currentFilename = path.substring(path.lastIndexOf('/') + 1); // e.g., "v1.html"
 
         // Find current index
-        let currentIndex = VERSIONS.findIndex(v => v.href === currentFilename);
+        let currentIndex = VERSIONS.findIndex(v => {
+            // Match exactly, or match if the filename starts with the version ID and a hyphen (e.g., v2-cart.html)
+            return v.href === currentFilename || currentFilename.startsWith(v.id + '-');
+        });
+
         if (currentIndex === -1) currentIndex = 0; // Default to first if unknown
 
         const currentVersion = VERSIONS[currentIndex];
