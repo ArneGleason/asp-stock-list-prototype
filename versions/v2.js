@@ -353,7 +353,7 @@ $(function () {
             'click .action-clear-filters': 'clearSearchAndFilter',
             'click .btn-toggle-edit-mode': 'enableEditMode',
             'click .btn-cancel-edit-mode': 'disableEditMode',
-            'change .bulk-action-checkbox': 'handleCheckboxToggle',
+            'click .bulk-action-checkbox': 'handleCheckboxToggle',
             'click .btn-bulk-cancel': 'bulkCancel',
             'click .btn-bulk-cart': 'bulkAddToCart',
             'click .btn-bulk-update': 'openBulkUpdateModal',
@@ -367,6 +367,7 @@ $(function () {
         statusFilter: '',
         editMode: false,
         selectedSkus: new Set(),
+        lastCheckedIndex: null,
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
@@ -491,6 +492,7 @@ $(function () {
         enableEditMode: function () {
             this.editMode = true;
             this.selectedSkus.clear();
+            this.lastCheckedIndex = null;
             this.render();
         },
 
@@ -498,17 +500,45 @@ $(function () {
             this.editMode = true; // Was true, need to reset it to false
             this.editMode = false;
             this.selectedSkus.clear();
+            this.lastCheckedIndex = null;
             this.render();
         },
 
         handleCheckboxToggle: function (e) {
             const checkbox = $(e.currentTarget);
             const sku = checkbox.val();
-            if (checkbox.is(':checked')) {
-                this.selectedSkus.add(sku);
+            const isChecked = checkbox.is(':checked');
+
+            const allCheckboxes = this.$('.bulk-action-checkbox').toArray();
+            const currentIndex = allCheckboxes.indexOf(checkbox[0]);
+
+            if (e.shiftKey && this.lastCheckedIndex !== null) {
+                // Determine the range
+                const start = Math.min(this.lastCheckedIndex, currentIndex);
+                const end = Math.max(this.lastCheckedIndex, currentIndex);
+
+                // Apply the "isChecked" state of the current click to the entire range
+                for (let i = start; i <= end; i++) {
+                    const cb = $(allCheckboxes[i]);
+                    const iterSku = cb.val();
+                    if (isChecked) {
+                        this.selectedSkus.add(iterSku);
+                        cb.prop('checked', true);
+                    } else {
+                        this.selectedSkus.delete(iterSku);
+                        cb.prop('checked', false);
+                    }
+                }
             } else {
-                this.selectedSkus.delete(sku);
+                // Standard single click
+                if (isChecked) {
+                    this.selectedSkus.add(sku);
+                } else {
+                    this.selectedSkus.delete(sku);
+                }
             }
+
+            this.lastCheckedIndex = currentIndex;
             this.updateBulkFooterState();
         },
 
@@ -530,28 +560,35 @@ $(function () {
             // Only select items currently rendered in the list (respects search/filters)
             this.$('.offer-variant-row').each((i, el) => {
                 const sku = $(el).data('sku');
-                if (sku) this.selectedSkus.add(sku);
+                if (sku) {
+                    this.selectedSkus.add(sku);
+                    $(el).find('.bulk-action-checkbox').prop('checked', true);
+                }
             });
-            this.render(); // Re-render to update checkboxes and footer
+            this.updateBulkFooterState();
         },
 
         batchReverse: function () {
             this.$('.offer-variant-row').each((i, el) => {
                 const sku = $(el).data('sku');
                 if (sku) {
+                    const cb = $(el).find('.bulk-action-checkbox');
                     if (this.selectedSkus.has(sku)) {
                         this.selectedSkus.delete(sku);
+                        cb.prop('checked', false);
                     } else {
                         this.selectedSkus.add(sku);
+                        cb.prop('checked', true);
                     }
                 }
             });
-            this.render();
+            this.updateBulkFooterState();
         },
 
         batchClear: function () {
             this.selectedSkus.clear();
-            this.render();
+            this.$('.bulk-action-checkbox').prop('checked', false);
+            this.updateBulkFooterState();
         },
 
         // --- Bulk Action Handlers --- 
@@ -572,9 +609,61 @@ $(function () {
             $('#bulk-update-value').val('');
         },
 
-        promptBulkConfirm: function (title, desc) {
+        promptBulkConfirm: function (title, actionDesc) {
             $('#bulk-confirm-title').text(title);
-            $('#bulk-confirm-desc').html(desc);
+
+            // -- Calculate Summary Stats --
+            let totalQty = 0;
+            let totalPrice = 0;
+            const statusCounts = {};
+
+            this.selectedSkus.forEach(sku => {
+                const item = OfferBuilderState.pinnedItems[sku];
+                if (item) {
+                    const qty = parseInt(item.qty, 10) || 0;
+                    totalQty += qty;
+                    totalPrice += qty * (parseFloat(item.price) || 0);
+                    const status = item.offerStatus || 'Unknown';
+                    statusCounts[status] = (statusCounts[status] || 0) + 1;
+                }
+            });
+
+            // Build summary HTML block
+            let statsHtml = `<div style="background: #f8f9fa; border: 1px solid #e0e0e0; padding: 12px; border-radius: 4px; margin-top: 15px;">`;
+            statsHtml += `<div style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: #666; margin-bottom: 8px;">Selection Summary</div>`;
+            statsHtml += `<div style="display: flex; gap: 20px; flex-wrap: wrap;">`;
+
+            statsHtml += `<div style="flex: 1; min-width: 80px;">`;
+            statsHtml += `<div style="font-size: 20px; font-weight: 700; color: #333;">${this.selectedSkus.size}</div>`;
+            statsHtml += `<div style="font-size: 12px; color: #666;">Unique Items</div>`;
+            statsHtml += `</div>`;
+
+            statsHtml += `<div style="flex: 1; min-width: 80px;">`;
+            statsHtml += `<div style="font-size: 20px; font-weight: 700; color: #333;">${totalQty}</div>`;
+            statsHtml += `<div style="font-size: 12px; color: #666;">Total Quantity</div>`;
+            statsHtml += `</div>`;
+
+            statsHtml += `<div style="flex: 1; min-width: 80px;">`;
+            statsHtml += `<div style="font-size: 20px; font-weight: 700; color: #333;">$${totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+            statsHtml += `<div style="font-size: 12px; color: #666;">Total Price</div>`;
+            statsHtml += `</div>`;
+
+            statsHtml += `</div>`; // Close flex row
+
+            if (Object.keys(statusCounts).length > 0) {
+                statsHtml += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ccc;">`;
+                statsHtml += `<div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px;">By Current Status:</div>`;
+                statsHtml += `<div style="display: flex; gap: 8px; flex-wrap: wrap;">`;
+                for (const [status, count] of Object.entries(statusCounts)) {
+                    const statusClass = status.toLowerCase().replace(/\\s+/g, '-');
+                    statsHtml += `<span class="variant-status-badge status-${statusClass}">${status} (${count})</span>`;
+                }
+                statsHtml += `</div></div>`;
+            }
+
+            statsHtml += `</div>`; // Close stats container
+
+            $('#bulk-confirm-desc').html(actionDesc + statsHtml);
             $('#bulk-confirm-input').val('');
             $('#btn-execute-bulk-action').prop('disabled', true);
 
@@ -905,6 +994,10 @@ $(function () {
             // Update total value based on ALL items
             this.updateTotalValue(items);
 
+            // Ensure bulk actions footer state matches the selection set after programmatic updates
+            if (this.editMode) {
+                this.updateBulkFooterState();
+            }
         },
 
         closeDrawer: function () {
