@@ -999,7 +999,27 @@
 
 /* Edit Mode Layout */
 .offer-variant-row {
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.3s ease, margin 0.3s ease, height 0.3s ease;
+}
+
+/* Add to Cart Animation States */
+.offer-variant-row.adding-to-cart {
+    background-color: #e6ffed !important;
+    border-color: #28a745 !important;
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+}
+
+.offer-variant-row.adding-to-cart-sliding {
+    opacity: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
 }
 
 .offer-variant-row.edit-mode {

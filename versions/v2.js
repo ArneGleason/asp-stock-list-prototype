@@ -744,11 +744,29 @@ $(function () {
                 }
             });
 
-            // Cleanup & Rerender
-            OfferBuilderState.save(); // Save the new statuses and quantities!
-            Backbone.trigger('offerBuilder:update');
-            $('#bulk-confirm-modal').modal('hide');
-            this.disableEditMode(); // Exit edit mode
+            if (type === 'add_to_cart') {
+                // Find all corresponding rows in DOM and animate them
+                const selectedRows = this.$('.offer-variant-row').filter((i, el) => skus.includes($(el).data('sku').toString()));
+
+                selectedRows.addClass('adding-to-cart');
+                selectedRows.find('.bulk-action-checkbox-container').html('<span class="material-icons" style="color: #28a745;">check</span>');
+
+                setTimeout(() => {
+                    selectedRows.addClass('adding-to-cart-sliding');
+
+                    setTimeout(() => {
+                        OfferBuilderState.save();
+                        Backbone.trigger('offerBuilder:update');
+                        $('#bulk-confirm-modal').modal('hide');
+                        this.disableEditMode();
+                    }, 300);
+                }, 500);
+            } else {
+                OfferBuilderState.save();
+                Backbone.trigger('offerBuilder:update');
+                $('#bulk-confirm-modal').modal('hide');
+                this.disableEditMode();
+            }
 
             // Show toast
             const msgMap = {
@@ -1614,8 +1632,21 @@ $(function () {
                 itemData.submittedQty = itemData.qty;
                 itemData.submittedPrice = itemData.price;
 
-                OfferBuilderState.save();
-                this.render();
+                // --- Animation Sequence ---
+                // 1. Flash green and change icon to checkmark
+                row.addClass('adding-to-cart');
+                btn.html('<span class="material-icons" style="color: #28a745;">check</span>');
+
+                setTimeout(() => {
+                    // 2. Smoothly slide closed
+                    row.addClass('adding-to-cart-sliding');
+
+                    setTimeout(() => {
+                        // 3. Commit state and re-render to remove from DOM completely
+                        OfferBuilderState.save();
+                        this.render();
+                    }, 300); // Wait for sliding animation (matching CSS)
+                }, 500); // Wait for green flash duration
             }
         },
 
