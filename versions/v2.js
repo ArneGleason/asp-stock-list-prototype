@@ -436,6 +436,12 @@ $(function () {
             const view = btn.data('view');
             if (view === this.viewMode) return;
 
+            // Reset state on tab switch
+            if (this.editMode) {
+                this.disableEditMode();
+            }
+            this.$('.drawer-body').scrollTop(0);
+
             this.viewMode = view;
             // Update tabs UI
             this.$('.view-tab').removeClass('active');
@@ -1023,6 +1029,12 @@ $(function () {
             $('.drawer-backdrop').removeClass('visible');
             $('body').css('overflow', '');
             this.$('#drawer-overflow-menu').removeClass('open');
+
+            // Reset state
+            if (this.editMode) {
+                this.disableEditMode();
+            }
+            this.$('.drawer-body').scrollTop(0);
         },
 
         openCartView: function (e) {
