@@ -175,6 +175,83 @@
         </div>
     </script>
 
+    </script>
+
+    <!-- Bulk Update Price Modal -->
+    <div class="modal fade" id="bulk-update-price-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-sm" role="document" style="margin-top: 20vh;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" style="font-weight: 500;">Update Price</h4>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted" style="font-size: 13px;">Adjust prices for <strong
+                            class="bulk-update-count">0</strong> selected items.</p>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Adjustment Type</label>
+                        <select class="form-control" id="bulk-update-type">
+                            <option value="increase_percent">Increase by %</option>
+                            <option value="decrease_percent">Decrease by %</option>
+                            <option value="increase_amount">Increase by $</option>
+                            <option value="decrease_amount">Decrease by $</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Value</label>
+                        <input type="number" class="form-control" id="bulk-update-value" placeholder="e.g. 5"
+                            step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-bulk-update-review">Review Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Confirmation Modal (Generic for Cancel / Cart / Update) -->
+    <div class="modal fade" id="bulk-confirm-modal" tabindex="-1" role="dialog" data-backdrop="static">
+        <div class="modal-dialog" role="document" style="margin-top: 15vh;">
+            <div class="modal-content">
+                <div class="modal-header bg-warning" id="bulk-confirm-header" style="color: #8a6d3b;">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" style="font-weight: 600;"><span class="material-icons"
+                            style="vertical-align: text-bottom; font-size: 20px;">warning</span> Confirm Bulk Action
+                    </h4>
+                </div>
+                <div class="modal-body">
+                    <h4 id="bulk-confirm-title" style="margin-top: 0; font-weight: 500;">Action Summary</h4>
+                    <p id="bulk-confirm-desc" style="font-size: 15px; margin-bottom: 20px;">
+                        <!-- Injected by JS -->
+                    </p>
+
+                    <div class="alert alert-danger" style="padding: 10px; font-size: 13px; margin-bottom: 20px;">
+                        <strong>Warning:</strong> This action cannot be undone and will immediately affect your active
+                        offers.
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bulk-confirm-input" style="font-weight: 500;">To confirm, type the word <strong
+                                id="bulk-confirm-word" style="user-select: none;">CONFIRM</strong> below:</label>
+                        <input type="text" class="form-control input-lg" id="bulk-confirm-input" placeholder=""
+                            autocomplete="off" style="text-align: center; letter-spacing: 2px; font-weight: bold;">
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="btn-execute-bulk-action" disabled
+                        style="min-width: 120px;">Execute</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Transaction Modal (Buy / Offer) -->
     <div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
@@ -514,6 +591,27 @@
                     <span class="material-icons drawer-search-clear"
                         style="display: none; position: absolute; right: 10px; top: 9px; font-size: 16px; color: #999; cursor: pointer;">close</span>
                 </div>
+
+                <!-- Select Button for Edit Mode (Active Tab only) -->
+                <button class="btn btn-default btn-toggle-edit-mode" style="display: none; font-weight: 600;">
+                    Batch
+                </button>
+                <div class="batch-quick-actions" style="display: none; margin-right: auto; gap: 8px;">
+                    <button class="btn btn-link btn-xs btn-batch-select-all"
+                        style="padding: 0; color: #0070B9; font-weight: 500; text-decoration: none;">Select All</button>
+                    <span style="color: #ccc;">|</span>
+                    <button class="btn btn-link btn-xs btn-batch-reverse"
+                        style="padding: 0; color: #0070B9; font-weight: 500; text-decoration: none;">Reverse</button>
+                    <span style="color: #ccc;">|</span>
+                    <button class="btn btn-link btn-xs btn-batch-clear"
+                        style="padding: 0; color: #0070B9; font-weight: 500; text-decoration: none;">Clear</button>
+                </div>
+                <div id="edit-mode-header-title" style="display: none; font-weight: 600; font-size: 15px;">
+                    Batch Mode
+                </div>
+                <button class="btn btn-default btn-cancel-edit-mode" style="display: none; font-weight: 600;">
+                    Cancel
+                </button>
             </div>
             <div class="offer-item-list">
                 <!-- Items will be injected here via JS Template -->
@@ -522,7 +620,9 @@
                 </div>
             </div>
         </div>
-        <div class="drawer-footer">
+
+        <!-- Standard Footer -->
+        <div class="drawer-footer" id="standard-drawer-footer">
             <button class="btn-place-offer" disabled>
                 <span class="material-icons">shopping_cart_checkout</span>
                 <span class="btn-text">Place Offers</span>
@@ -536,6 +636,21 @@
             <div class="offer-summary">
                 <span>Total</span>
                 <span class="offer-total-amount">$0.00</span>
+            </div>
+        </div>
+
+        <!-- Bulk Action Footer (Hidden by default) -->
+        <div class="drawer-footer" id="bulk-action-footer"
+            style="display: none; justify-content: space-between; padding: 10px 20px;">
+            <div class="bulk-selection-info"
+                style="font-size: 14px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                <span id="bulk-selected-count">0</span>&nbsp;Selected
+            </div>
+            <div class="bulk-actions" style="display: flex; gap: 8px;">
+                <button class="btn btn-default btn-sm btn-bulk-cancel" disabled
+                    style="color: #d9534f; border-color: #d9534f;">Cancel Offers</button>
+                <button class="btn btn-default btn-sm btn-bulk-update" disabled>Update Price</button>
+                <button class="btn btn-primary btn-sm btn-bulk-cart" disabled>Add to Cart</button>
             </div>
         </div>
     </div>
@@ -566,6 +681,9 @@
 
         <div class="offer-variant-row" data-sku="<%= sku %>">
             <!-- Left: Info -->
+            <div class="bulk-action-checkbox-container" style="display: none; margin-right: 12px;">
+                <input type="checkbox" class="bulk-action-checkbox" value="<%= sku %>" style="transform: scale(1.2); cursor: pointer;">
+            </div>
             <!-- Left Column: Info -->
             <div class="variant-info-col">
                 <div class="variant-desc-row">

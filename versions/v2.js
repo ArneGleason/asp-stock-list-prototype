@@ -350,12 +350,23 @@ $(function () {
             'keyup .drawer-search-input': 'handleDrawerSearch',
             'click .drawer-search-clear': 'clearDrawerSearch',
             'click .status-filter-option': 'setStatusFilter',
-            'click .action-clear-filters': 'clearSearchAndFilter'
+            'click .action-clear-filters': 'clearSearchAndFilter',
+            'click .btn-toggle-edit-mode': 'enableEditMode',
+            'click .btn-cancel-edit-mode': 'disableEditMode',
+            'change .bulk-action-checkbox': 'handleCheckboxToggle',
+            'click .btn-bulk-cancel': 'bulkCancel',
+            'click .btn-bulk-cart': 'bulkAddToCart',
+            'click .btn-bulk-update': 'openBulkUpdateModal',
+            'click .btn-batch-select-all': 'batchSelectAll',
+            'click .btn-batch-reverse': 'batchReverse',
+            'click .btn-batch-clear': 'batchClear'
         },
 
         viewMode: 'pinned', // 'pinned' (was selected) or 'active'
         searchTerm: '',
         statusFilter: '',
+        editMode: false,
+        selectedSkus: new Set(),
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
@@ -376,6 +387,28 @@ $(function () {
                 if (!$target.closest('.variant-menu-container').length) {
                     this.$('.variant-overflow-menu').removeClass('open');
                 }
+            });
+
+            // Bulk Confirmation Input validation
+            $('#bulk-confirm-input').on('input', this.handleBulkConfirmInput.bind(this));
+            $('#btn-execute-bulk-action').on('click', this.executeBulkAction.bind(this));
+
+            // Bulk Update Review Button
+            $('#btn-bulk-update-review').on('click', () => {
+                const type = $('#bulk-update-type').val();
+                const v = parseFloat($('#bulk-update-value').val());
+                if (isNaN(v) || v <= 0) return alert('Please enter a valid amount.');
+
+                $('#bulk-update-price-modal').modal('hide');
+
+                let actionStr = '';
+                if (type === 'increase_percent') actionStr = 'increase prices by ' + v + '%';
+                if (type === 'decrease_percent') actionStr = 'decrease prices by ' + v + '%';
+                if (type === 'increase_amount') actionStr = 'increase prices by $' + v.toFixed(2);
+                if (type === 'decrease_amount') actionStr = 'decrease prices by $' + v.toFixed(2);
+
+                this.pendingBulkAction = { type: 'update_price', payload: { action: type, value: v } };
+                this.promptBulkConfirm('Update Prices', `You are about to <strong>${actionStr}</strong> for <strong>${this.selectedSkus.size}</strong> active offers.`);
             });
         },
 
@@ -455,6 +488,157 @@ $(function () {
             this.render();
         },
 
+        enableEditMode: function () {
+            this.editMode = true;
+            this.selectedSkus.clear();
+            this.render();
+        },
+
+        disableEditMode: function () {
+            this.editMode = true; // Was true, need to reset it to false
+            this.editMode = false;
+            this.selectedSkus.clear();
+            this.render();
+        },
+
+        handleCheckboxToggle: function (e) {
+            const checkbox = $(e.currentTarget);
+            const sku = checkbox.val();
+            if (checkbox.is(':checked')) {
+                this.selectedSkus.add(sku);
+            } else {
+                this.selectedSkus.delete(sku);
+            }
+            this.updateBulkFooterState();
+        },
+
+        updateBulkFooterState: function () {
+            const count = this.selectedSkus.size;
+            this.$('#bulk-selected-count').text(count);
+
+            const hasSelection = count > 0;
+            this.$('.btn-bulk-cancel').prop('disabled', !hasSelection);
+            this.$('.btn-bulk-update').prop('disabled', !hasSelection);
+            this.$('.btn-bulk-cart').prop('disabled', !hasSelection);
+
+            this.$('.bulk-actions').css('display', 'flex');
+        },
+
+        // --- Batch Control Row Handlers ---
+
+        batchSelectAll: function () {
+            // Only select items currently rendered in the list (respects search/filters)
+            this.$('.offer-variant-row').each((i, el) => {
+                const sku = $(el).data('sku');
+                if (sku) this.selectedSkus.add(sku);
+            });
+            this.render(); // Re-render to update checkboxes and footer
+        },
+
+        batchReverse: function () {
+            this.$('.offer-variant-row').each((i, el) => {
+                const sku = $(el).data('sku');
+                if (sku) {
+                    if (this.selectedSkus.has(sku)) {
+                        this.selectedSkus.delete(sku);
+                    } else {
+                        this.selectedSkus.add(sku);
+                    }
+                }
+            });
+            this.render();
+        },
+
+        batchClear: function () {
+            this.selectedSkus.clear();
+            this.render();
+        },
+
+        // --- Bulk Action Handlers --- 
+
+        bulkCancel: function () {
+            this.pendingBulkAction = { type: 'cancel' };
+            this.promptBulkConfirm('Cancel Offers', `You are about to cancel <strong>${this.selectedSkus.size}</strong> active offers.`);
+        },
+
+        bulkAddToCart: function () {
+            this.pendingBulkAction = { type: 'add_to_cart' };
+            this.promptBulkConfirm('Add to Cart', `You are about to move <strong>${this.selectedSkus.size}</strong> active offers to your Cart.`);
+        },
+
+        openBulkUpdateModal: function () {
+            $('#bulk-update-price-modal').modal('show');
+            $('.bulk-update-count').text(this.selectedSkus.size);
+            $('#bulk-update-value').val('');
+        },
+
+        promptBulkConfirm: function (title, desc) {
+            $('#bulk-confirm-title').text(title);
+            $('#bulk-confirm-desc').html(desc);
+            $('#bulk-confirm-input').val('');
+            $('#btn-execute-bulk-action').prop('disabled', true);
+
+            // Generate a random confirmation word just to make sure they read it (could be hardcoded 'CONFIRM')
+            const confirmWord = 'CONFIRM';
+            $('#bulk-confirm-word').text(confirmWord);
+
+            $('#bulk-confirm-modal').modal('show');
+        },
+
+        handleBulkConfirmInput: function (e) {
+            const inputVal = $(e.currentTarget).val().trim().toUpperCase();
+            const requiredVal = $('#bulk-confirm-word').text().trim().toUpperCase();
+            $('#btn-execute-bulk-action').prop('disabled', inputVal !== requiredVal);
+        },
+
+        executeBulkAction: function () {
+            if (!this.pendingBulkAction) return;
+
+            const skus = Array.from(this.selectedSkus);
+            const type = this.pendingBulkAction.type;
+            const payload = this.pendingBulkAction.payload;
+
+            skus.forEach(sku => {
+                const item = OfferBuilderState.pinnedItems[sku];
+                if (!item) return;
+
+                if (type === 'cancel') {
+                    item.offerStatus = 'Draft';
+                    // Optionally clear qty/price here, or just reset status
+                } else if (type === 'add_to_cart') {
+                    item.offerStatus = 'In Cart';
+                } else if (type === 'update_price') {
+                    let newPrice = parseFloat(item.price);
+                    if (isNaN(newPrice)) return;
+
+                    const v = payload.value;
+                    if (payload.action === 'increase_percent') newPrice = newPrice * (1 + (v / 100));
+                    if (payload.action === 'decrease_percent') newPrice = newPrice * (1 - (v / 100));
+                    if (payload.action === 'increase_amount') newPrice = newPrice + v;
+                    if (payload.action === 'decrease_amount') newPrice = Math.max(0, newPrice - v); // Prevent negative
+
+                    item.price = newPrice.toFixed(2);
+                    item.submittedPrice = newPrice.toFixed(2); // If updating active offers directly, we probably update both
+                    // Or it might move it to a state that needs a "Re-submit" action. Assuming direct update for now.
+                }
+            });
+
+            // Cleanup & Rerender
+            Backbone.trigger('offerBuilder:update');
+            $('#bulk-confirm-modal').modal('hide');
+            this.disableEditMode(); // Exit edit mode
+
+            // Show toast
+            const msgMap = {
+                'cancel': 'Cancelled ' + skus.length + ' offers.',
+                'add_to_cart': 'Added ' + skus.length + ' offers to cart.',
+                'update_price': 'Updated prices for ' + skus.length + ' offers.'
+            };
+            showToast(msgMap[type], 'success');
+
+            this.pendingBulkAction = null;
+        },
+
         render: function () {
             const listContainer = this.$('.offer-item-list');
             listContainer.empty();
@@ -487,11 +671,39 @@ $(function () {
                 // Show pinned items
                 items = allItems.filter(item => item.isPinned);
                 this.$('.drawer-status-filter').hide();
+                this.$('.btn-toggle-edit-mode').hide();
+                this.$('.btn-cancel-edit-mode').hide();
+                this.editMode = false;
             } else if (this.viewMode === 'active') {
                 // Show items with active status (not Draft and not In Cart)
                 activeItemsBase = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart');
                 items = [...activeItemsBase];
-                this.$('.drawer-status-filter').show();
+
+                if (this.editMode) {
+                    this.$('.drawer-status-filter').hide();
+                    this.$('.drawer-search-input').parent().hide();
+                    this.$('.btn-toggle-edit-mode').hide();
+                    this.$('.btn-cancel-edit-mode').show();
+
+                    this.$('#edit-mode-header-title').show();
+                    this.$('.batch-quick-actions').css('display', 'flex'); // Show advanced controls
+
+                    // Swap footers
+                    this.$('#standard-drawer-footer').hide();
+                    this.$('#bulk-action-footer').css('display', 'flex');
+                } else {
+                    this.$('.drawer-status-filter').show();
+                    this.$('.drawer-search-input').parent().show();
+                    this.$('.btn-toggle-edit-mode').show();
+                    this.$('.btn-cancel-edit-mode').hide();
+
+                    this.$('#edit-mode-header-title').hide();
+                    this.$('.batch-quick-actions').hide(); // Hide advanced controls
+
+                    // Swap footers
+                    this.$('#standard-drawer-footer').css('display', 'flex');
+                    this.$('#bulk-action-footer').hide();
+                }
 
                 // Populate Status Filter Dropdown
                 const statusCounts = _.countBy(activeItemsBase, 'offerStatus');
@@ -636,6 +848,8 @@ $(function () {
                         }
                     }
 
+                    const isSelected = this.editMode && this.selectedSkus.has(item.sku);
+
                     const $variantEl = $(this.variantTemplate({
                         sku: item.sku,
                         model: item.model,
@@ -664,6 +878,19 @@ $(function () {
                     $variantEl.find('.item-total').html(this.formatMoneyHTML(initialTotal));
 
                     this.validateAndShowFeedback($variantEl);
+                    // Ensure the checkbox state matches the model if in edit mode
+                    if (this.editMode) {
+                        $variantEl.find('.bulk-action-checkbox').prop('checked', isSelected);
+                        $variantEl.addClass('edit-mode');
+                        $variantEl.find('.bulk-action-checkbox-container').show();
+
+                        // Disable inputs and hide individual overflow menus
+                        $variantEl.find('.control-input').prop('disabled', true);
+                        $variantEl.find('.variant-menu-container').hide();
+                        $variantEl.find('.add-to-cart-action').hide(); // Also hide inline link actions
+                        $variantEl.find('.offer-item-clear').hide();
+                        $variantEl.find('.offer-item-unpin').hide();
+                    }
 
                     $variantsContainer.append($variantEl);
 

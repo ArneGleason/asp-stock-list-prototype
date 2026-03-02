@@ -592,6 +592,11 @@
     gap: 15px;
 }
 
+#bulk-action-footer {
+    background-color: #eef2f5;
+    border-top: 2px solid #0070B9;
+}
+
 .offer-summary {
     flex: 1;
     /* Take 1/3 space */
@@ -990,4 +995,34 @@
 .action-clear-filters:hover {
     color: #005a94;
     text-decoration: none;
+}
+/* Edit Mode Layout */
+.offer-variant-row {
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.offer-variant-row.edit-mode {
+    background-color: #fcfcfc;
+    border-left: 3px solid transparent;
+}
+
+.offer-variant-row.edit-mode:has(.bulk-action-checkbox:checked) {
+    background-color: #e6f7ff;
+    border-left-color: #0070B9;
+}
+
+.bulk-action-checkbox-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    margin-right: 12px;
+}
+
+/* Ensure checkboxes are reasonably sized on mobile */
+.bulk-action-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #0070B9;
 }
