@@ -73,6 +73,10 @@
         /* Tighter padding on mobile */
         min-width: 280px;
     }
+
+    .offer-bar-actions .btn .btn-text {
+        display: none;
+    }
 }
 
 .offer-bar-actions {

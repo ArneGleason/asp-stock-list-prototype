@@ -456,14 +456,22 @@
     <!-- Offer Drawer (Right Side) -->
     <div id="offer-drawer" class="offer-drawer">
         <div class="drawer-header">
-            <div class="drawer-title">
-                <span class="material-icons">grid_view</span>
-                Offer Worksheet <span style="font-size: 10px; color: #ccc; margin-left: 5px;">v2.7</span>
+            <div class="drawer-title" style="display: flex; align-items: center; gap: 8px;">
+                <button class="drawer-action-btn drawer-close-btn"
+                    style="padding: 0; display: flex; align-items: center; justify-content: center; height: 28px; width: 28px; border-radius: 50%;">
+                    <span class="material-icons" style="font-size: 20px;">close</span>
+                </button>
+                Offer Worksheet
             </div>
             <div class="drawer-view-tabs">
-                <button class="view-tab active" data-view="pinned">Pinned <span
-                        class="badge tab-badge">0</span></button>
-                <button class="view-tab" data-view="active">Active <span class="badge tab-badge">0</span></button>
+                <button class="view-tab active" data-view="pinned">
+                    <span class="material-icons" style="font-size: 16px;">bookmark_border</span>
+                    <span class="tab-label">Pinned</span> <span class="badge tab-badge">0</span>
+                </button>
+                <button class="view-tab" data-view="active">
+                    <span class="material-icons" style="font-size: 16px;">bolt</span>
+                    <span class="tab-label">Active</span> <span class="badge tab-badge">0</span>
+                </button>
             </div>
             <div class="drawer-actions">
                 <div class="overflow-menu-container">
@@ -481,9 +489,6 @@
                         </div>
                     </div>
                 </div>
-                <button class="drawer-action-btn drawer-close-btn">
-                    <span class="material-icons">close</span>
-                </button>
             </div>
         </div>
         <div class="drawer-body">
@@ -697,10 +702,12 @@
                     <span class="fab-section-title">OFFERS</span>
                     <div class="offer-bar-actions">
                         <button class="btn btn-dark btn-sm btn-view-pinned">
-                            Pinned <span class="badge badge-light pinned-count">0</span>
+                            <span class="material-icons" style="font-size: 16px;">bookmark_border</span>
+                            <span class="btn-text">Pinned</span> <span class="badge badge-light pinned-count">0</span>
                         </button>
                         <button class="btn btn-dark btn-sm btn-view-active">
-                            Active <span class="badge badge-success active-count">0</span>
+                            <span class="material-icons" style="font-size: 16px;">bolt</span>
+                            <span class="btn-text">Active</span> <span class="badge badge-success active-count">0</span>
                         </button>
                     </div>
                 </div>
@@ -712,7 +719,8 @@
                     <span class="fab-section-title">CART</span>
                     <div class="offer-bar-actions">
                         <button class="btn btn-dark btn-sm btn-cart">
-                            Ready <span class="badge badge-light">0</span>
+                            <span class="material-icons" style="font-size: 16px;">shopping_cart</span>
+                            <span class="btn-text">Ready</span> <span class="badge badge-light">0</span>
                         </button>
                     </div>
                 </div>
