@@ -719,7 +719,15 @@ $(function () {
                     item.offerStatus = 'Draft';
                     // Optionally clear qty/price here, or just reset status
                 } else if (type === 'add_to_cart') {
+                    // Ensure valid qty/price before moving to cart
+                    item.qty = item.qty || item.submittedQty || 1;
+                    item.price = item.price || item.submittedPrice || item.listPrice;
+
                     item.offerStatus = 'In Cart';
+
+                    // Update snapshots to avoid "Edited" flag since we are committing to this state
+                    item.submittedQty = item.qty;
+                    item.submittedPrice = item.price;
                 } else if (type === 'update_price') {
                     let newPrice = parseFloat(item.price);
                     if (isNaN(newPrice)) return;
@@ -737,6 +745,7 @@ $(function () {
             });
 
             // Cleanup & Rerender
+            OfferBuilderState.save(); // Save the new statuses and quantities!
             Backbone.trigger('offerBuilder:update');
             $('#bulk-confirm-modal').modal('hide');
             this.disableEditMode(); // Exit edit mode
