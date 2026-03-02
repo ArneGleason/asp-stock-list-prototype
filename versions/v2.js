@@ -359,7 +359,8 @@ $(function () {
             'click .btn-bulk-update': 'openBulkUpdateModal',
             'click .btn-batch-select-all': 'batchSelectAll',
             'click .btn-batch-reverse': 'batchReverse',
-            'click .btn-batch-clear': 'batchClear'
+            'click .btn-batch-clear': 'batchClear',
+            'click #btn-scroll-top': 'scrollToTop'
         },
 
         viewMode: 'pinned', // 'pinned' (was selected) or 'active'
@@ -372,6 +373,18 @@ $(function () {
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
             this.listenTo(Backbone, 'offerDrawer:open', this.openDrawer);
+
+            // Add scroll listener for FAB
+            this.$('.drawer-body').on('scroll', (e) => {
+                const scrollTop = $(e.currentTarget).scrollTop();
+                const btn = this.$('#btn-scroll-top');
+
+                if (scrollTop > 200) {
+                    btn.addClass('visible');
+                } else {
+                    btn.removeClass('visible');
+                }
+            });
 
             // Backdrop click handler
             $('.drawer-backdrop').on('click', () => {
@@ -411,6 +424,11 @@ $(function () {
                 this.pendingBulkAction = { type: 'update_price', payload: { action: type, value: v } };
                 this.promptBulkConfirm('Update Prices', `You are about to <strong>${actionStr}</strong> for <strong>${this.selectedSkus.size}</strong> active offers.`);
             });
+        },
+
+        scrollToTop: function () {
+            this.$('.drawer-body').animate({ scrollTop: 0 }, 300);
+            this.$('#btn-scroll-top').blur();
         },
 
         switchView: function (e) {

@@ -996,6 +996,7 @@
     color: #005a94;
     text-decoration: none;
 }
+
 /* Edit Mode Layout */
 .offer-variant-row {
     transition: transform 0.2s ease, background-color 0.2s ease;
@@ -1025,4 +1026,52 @@
     height: 20px;
     cursor: pointer;
     accent-color: #0070B9;
+}
+
+/* --- Scroll to Top FAB --- */
+.btn-scroll-top {
+    position: absolute;
+    bottom: 85px;
+    right: 20px;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+
+    /* Transition for visibility and opacity */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease, background-color 0.2s ease;
+    display: flex;
+    /* Always flex, just hidden */
+}
+
+.btn-scroll-top.visible {
+    opacity: 0.5;
+    visibility: visible;
+}
+
+.btn-scroll-top.visible:hover {
+    opacity: 1;
+}
+
+/* Override default Bootstrap button focus/active states that might force opacity to 1 */
+.btn-scroll-top.visible:focus,
+.btn-scroll-top.visible:active,
+.btn-scroll-top.visible:focus:active {
+    opacity: 0.5;
+}
+
+.btn-scroll-top.visible:hover:focus,
+.btn-scroll-top.visible:hover:active {
+    opacity: 1;
+}
+
+.btn-scroll-top .material-icons {
+    font-size: 24px;
+    line-height: 48px;
 }
