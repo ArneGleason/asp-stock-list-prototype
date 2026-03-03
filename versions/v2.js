@@ -1413,6 +1413,7 @@ $(function () {
         placeOffers: function () {
             const items = OfferBuilderState.pinnedItems;
             let count = 0;
+            const processedSkus = [];
 
             Object.values(items).forEach(item => {
                 const price = parseFloat(item.price || 0);
@@ -1441,23 +1442,45 @@ $(function () {
                     item.offerStatus = 'Pending';
                     item.submittedQty = qty;
                     item.submittedPrice = price;
-                    // Ensure it's marked as pinned (though it should be if we are here, unless we support submitting unpinned items?)
-                    // If it was unpinned but active, and we edit+submit, it stays unpinned (Active tab) but updates values.
 
+                    // Unpin upon placing offer
+                    item.isPinned = false;
+
+                    processedSkus.push(item.sku.toString());
                     count++;
                 }
             });
 
             if (count > 0) {
+                if (this.viewMode === 'pinned') {
+                    const selectedRows = this.$('.offer-variant-row').filter((i, el) => processedSkus.includes($(el).data('sku').toString()));
+
+                    if (selectedRows.length > 0) {
+                        selectedRows.addClass('adding-to-cart'); // Reusing the visual class
+
+                        setTimeout(() => {
+                            selectedRows.addClass('adding-to-cart-sliding');
+
+                            setTimeout(() => {
+                                OfferBuilderState.save();
+                                this.render();
+                                showToast(`Successfully placed offers for ${count} items!`, 'success');
+                                OfferBuilderState.triggerUpdate();
+                            }, 300);
+                        }, 500);
+                        return; // Exit here to prevent immediate save/render below
+                    }
+                }
+
+                // If not in pinned view, or no rows to animate
                 OfferBuilderState.save();
                 this.render(); // Re-render to show new statuses
-                alert(`Successfully placed offers for ${count} items!`);
-                this.closeDrawer();
+                showToast(`Successfully placed offers for ${count} items!`, 'success');
 
                 // Trigger global update so Stock List icons/badges update
                 OfferBuilderState.triggerUpdate();
             } else {
-                alert('No valid offers to place.');
+                showToast('No valid offers to place.', 'error');
             }
         },
 
