@@ -11,6 +11,29 @@ $(function () {
 
     window.isExpandedAll = false;
 
+    window.isExpandedAll = false;
+
+    const StockListPresets = {
+        presets: {}, // Map of slot ('Default', 'A', 'B' etc) -> filters object
+        currentSlot: null,
+
+        init: function () {
+            const stored = localStorage.getItem('stockListPresets_v3');
+            if (stored) {
+                this.presets = JSON.parse(stored);
+            }
+        },
+
+        save: function () {
+            localStorage.setItem('stockListPresets_v3', JSON.stringify(this.presets));
+        },
+
+        renderMenu: function ($menu) {
+            // Keep the core slot rendering so we can reuse it, but don't inject into $menu implicitly.
+            // We'll let PresetControlView handle the exact DOM structure.
+        }
+    };
+
     const OfferBuilderState = {
         pinnedItems: {}, // Map of SKU -> { item data }
 
@@ -1943,6 +1966,9 @@ $(function () {
 
         // Helper to update filters
         updateFilter: function (type, value, isChecked) {
+            StockListPresets.currentSlot = null;
+            StockListPresets.renderMenu($('#stock-preset-list-menu'));
+
             if (type === 'oos') {
                 this.state.filters.includeOos = isChecked;
             } else {
@@ -1967,6 +1993,9 @@ $(function () {
         },
 
         updateSearch: function (term) {
+            StockListPresets.currentSlot = null;
+            StockListPresets.renderMenu($('#stock-preset-list-menu'));
+
             this.state.filters.search = term;
             this.state.start = 0;
             this.fetch();
@@ -2035,7 +2064,6 @@ $(function () {
             if (filters.includeOos) {
                 // OOS is a toggle, not a list, but we can show it as a chip
                 // html += ... 
-                // Usually toggles are just toggles. Let's skip for now unless requested.
             }
 
             if (hasFilters) {
@@ -2072,7 +2100,218 @@ $(function () {
             };
             $('#search-input').val(''); // Clear UI input
             this.collection.state.start = 0;
+
+            StockListPresets.currentSlot = null;
+            StockListPresets.renderMenu($('#stock-preset-list-menu'));
+
             this.collection.fetch();
+
+            // Uncheck all sidebar filters
+            $('.filter-checkbox').prop('checked', false);
+            $('#filter-oos').prop('checked', false);
+        }
+    });
+
+    const PresetControlView = Backbone.View.extend({
+        el: '#preset-control-dropdown',
+
+        events: {
+            'click .preset-save-slot': 'saveSlot',
+            'click .preset-load-slot': 'loadSlot',
+            'click .preset-clear-all': 'clearFilters'
+        },
+
+        initialize: function () {
+            this.listenTo(this.collection, 'sync', this.render);
+        },
+
+        hasActiveFilters: function () {
+            const filters = this.collection.state.filters;
+            if (filters.search) return true;
+            for (const type of ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade']) {
+                if (filters[type] && filters[type].length > 0) return true;
+            }
+            if (filters.includeOos) return true;
+            return false;
+        },
+
+        getPresetSummary: function (slot) {
+            const config = StockListPresets.presets[slot];
+            if (!config) return `<div style="font-size: 11px; color: #bbb; margin-top: 2px; font-style: italic;">Empty</div>`;
+
+            let parts = [];
+            if (config.search) parts.push(`Search: "${config.search}"`);
+            ['manufacturer', 'model', 'grade', 'warehouse', 'lockStatus'].forEach(type => {
+                if (config[type] && config[type].length > 0) {
+                    parts.push(`${type}: ${config[type].length}`);
+                }
+            });
+            let detailsHtml = '';
+            if (parts.length > 0) {
+                detailsHtml = `<div style="font-size: 11px; color: #888; margin-top: 2px;">${parts.slice(0, 3).join(', ')}${parts.length > 3 ? ', ...' : ''}</div>`;
+            } else {
+                detailsHtml = `<div style="font-size: 11px; color: #888; margin-top: 2px;">No filters</div>`;
+            }
+            return detailsHtml;
+        },
+
+        render: function () {
+            const btnIcon = this.$('.preset-btn-icon');
+            const menu = this.$('#preset-control-menu');
+            menu.empty();
+
+            const isActive = this.hasActiveFilters();
+            const currentSlot = StockListPresets.currentSlot;
+
+            // Determine State
+            if (!isActive && !currentSlot) {
+                // State A: Empty. No search criteria, no preset selected
+                btnIcon.text('tune'); // or bookmarks
+
+                let hasSavedPresets = false;
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    if (StockListPresets.presets[slot]) hasSavedPresets = true;
+                });
+
+                if (!hasSavedPresets) {
+                    menu.append(`<li style="padding: 15px; color: #777; font-size: 13px; text-align: center; width: 250px; white-space: normal;">No active filters to save, and no saved presets available.</li>`);
+                } else {
+                    menu.append(`<li class="dropdown-header">Load Existing</li>`);
+                    ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                        if (StockListPresets.presets[slot]) {
+                            let label = 'Preset ' + slot;
+                            menu.append(`
+                                <li><a href="#" class="preset-load-slot" data-slot="${slot}" style="padding: 8px 15px;">
+                                    <div style="font-weight: 500;">${label}</div>
+                                    ${this.getPresetSummary(slot)}
+                                </a></li>
+                            `);
+                        }
+                    });
+                }
+            } else if (isActive && !currentSlot) {
+                // State B: Unsaved Filters
+                btnIcon.text('save');
+
+                menu.append(`<li class="dropdown-header">Save Current Filters To...</li>`);
+                const slotsRow = $('<li style="padding: 5px 15px; display: flex; gap: 5px;"></li>');
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    const btnClass = StockListPresets.presets[slot] ? 'btn-warning' : 'btn-default'; // Warning if overwriting
+                    slotsRow.append(`<button type="button" class="btn ${btnClass} btn-xs preset-save-slot" data-slot="${slot}" title="Save to ${slot}">${slot}</button>`);
+                });
+                menu.append(slotsRow);
+
+                menu.append(`<li role="separator" class="divider"></li>`);
+                menu.append(`<li class="dropdown-header">Load Existing...</li>`);
+
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    if (StockListPresets.presets[slot]) {
+                        let label = 'Preset ' + slot;
+                        menu.append(`
+                            <li><a href="#" class="preset-load-slot" data-slot="${slot}" style="padding: 8px 15px;">
+                                <div style="font-weight: 500;">${label}</div>
+                                ${this.getPresetSummary(slot)}
+                            </a></li>
+                        `);
+                    }
+                });
+
+            } else if (currentSlot) {
+                // State C: Preset Active
+                const displaySlot = currentSlot;
+                btnIcon.text(displaySlot);
+                btnIcon.css({ 'font-family': 'Inter, sans-serif', 'font-weight': 'bold', 'font-size': '16px' });
+
+                menu.append(`<li class="dropdown-header">Current: Preset ${currentSlot}</li>`);
+
+                menu.append(`<li><a href="#" class="preset-clear-all text-danger" style="padding: 8px 15px; font-weight: 500;"><span class="material-icons" style="font-size: 14px; vertical-align: text-bottom; margin-right: 5px;">clear</span> Clear Filters</a></li>`);
+
+                menu.append(`<li role="separator" class="divider"></li>`);
+                menu.append(`<li class="dropdown-header">Load Another...</li>`);
+
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    if (StockListPresets.presets[slot] && slot !== currentSlot) {
+                        let label = 'Preset ' + slot;
+                        menu.append(`
+                            <li><a href="#" class="preset-load-slot" data-slot="${slot}" style="padding: 8px 15px;">
+                                <div style="font-weight: 500;">${label}</div>
+                                ${this.getPresetSummary(slot)}
+                            </a></li>
+                        `);
+                    }
+                });
+            }
+
+            // Reset font styling if not State C
+            if (!currentSlot) {
+                btnIcon.css({ 'font-family': "'Material Icons'", 'font-weight': 'normal' });
+            }
+        },
+
+        saveSlot: function (e) {
+            e.preventDefault();
+            e.stopPropagation(); // Keep dropdown open? Or let it close. Let's let it close natively or manually close it
+            const slot = $(e.currentTarget).data('slot');
+
+            const config = JSON.parse(JSON.stringify(this.collection.state.filters));
+            StockListPresets.presets[slot] = config;
+            StockListPresets.currentSlot = slot;
+            StockListPresets.save();
+
+            this.render(); // Re-render to show State C
+            this.$el.removeClass('open'); // close bootstrap dropdown manually
+        },
+
+        loadSlot: function (e) {
+            e.preventDefault();
+            const slot = $(e.currentTarget).data('slot');
+            const config = StockListPresets.presets[slot];
+
+            if (config) {
+                this.collection.state.filters = JSON.parse(JSON.stringify(config));
+                this.collection.state.start = 0;
+                StockListPresets.currentSlot = slot;
+
+                // Sync UI search box
+                $('#search-input').val(config.search || '');
+                if (config.search) {
+                    $('#search-clear').show();
+                } else {
+                    $('#search-clear').hide();
+                }
+
+                // Sync UI Sidebar Checkboxes
+                $('.filter-checkbox').prop('checked', false);
+                ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade'].forEach(type => {
+                    if (config[type] && config[type].length > 0) {
+                        config[type].forEach(val => {
+                            $(`.filter-checkbox[data-type="${type}"][value="${val}"]`).prop('checked', true);
+                        });
+                    }
+                });
+                $('#filter-oos').prop('checked', !!config.includeOos);
+
+                this.collection.fetch(); // Trigger sync > renders PresetControlView and ActiveFiltersView
+            }
+            this.$el.removeClass('open');
+        },
+
+        clearFilters: function (e) {
+            e.preventDefault();
+            // Reusing ActiveFiltersView logic
+            this.collection.state.filters = {
+                category: [], warehouse: [], manufacturer: [], model: [],
+                grade: [], lockStatus: [], includeOos: false, search: ''
+            };
+            $('#search-input').val('');
+            this.collection.state.start = 0;
+            StockListPresets.currentSlot = null;
+
+            $('.filter-checkbox').prop('checked', false);
+            $('#filter-oos').prop('checked', false);
+
+            this.collection.fetch();
+            this.$el.removeClass('open');
         }
     });
 
@@ -2438,7 +2677,6 @@ $(function () {
             this.lastInteractionTime = 0; // Debounce tracker for iOS synthetic clicks
 
             this.listenTo(this.collection, 'sync', this.renderFilters);
-            this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
 
             // Bind external controls that live outside .drawer-layout-container
             $('#filter-toggle-btn').on('click', this.toggleDrawer.bind(this));
@@ -2505,29 +2743,6 @@ $(function () {
                 this.closeDrawer();
             }
         },
-
-        updateBadge: function () {
-            const filters = this.collection.state.filters;
-            let count = 0;
-
-            // Count array filters
-            ['category', 'warehouse', 'grade', 'manufacturer', 'model', 'capacity', 'color', 'network', 'lockStatus'].forEach(type => {
-                if (filters[type]) count += filters[type].length;
-            });
-
-            // Count boolean filters
-            if (filters.includeOos) count++;
-
-            const badge = $('#filter-toggle-btn .filter-count');
-            badge.text(count);
-
-            if (count > 0) {
-                badge.show();
-            } else {
-                badge.hide();
-            }
-        },
-
 
         removeFilterChip: function (e) {
             const type = $(e.currentTarget).data('type');
@@ -3078,6 +3293,7 @@ $(function () {
 
     new PaginationView({ collection: stockCollection });
     new SidebarView({ collection: stockCollection });
+    new PresetControlView({ collection: stockCollection });
     new ActiveFiltersView({ collection: stockCollection });
     new ExperimentView();
     new OfferBarView();
@@ -3108,6 +3324,11 @@ $(function () {
     new GlobalControlsView();
 
     OfferBuilderState.init();
+    StockListPresets.init();
+    new PresetControlView({ collection: stockCollection }); // Moved here
+
+    // Remove old document-level preset option clicks
+    // The new PresetControlView handles these natively now.
 
     // Initial Fetch
     stockCollection.fetch();

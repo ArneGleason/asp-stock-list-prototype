@@ -613,8 +613,67 @@
     text-transform: uppercase;
     color: #666;
     font-weight: 600;
-    margin-bottom: 2px;
+    margin-bottom: 5px;
 }
+
+/* Preset & Filter Round Icon Buttons */
+.btn-icon-round {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f4f6f8;
+    border: 1px solid #e0e0e0;
+    color: #555;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.btn-icon-round:hover {
+    background-color: #e5e9ed;
+    color: #333;
+    border-color: #d0d0d0;
+}
+
+.btn-icon-round .material-icons {
+    font-size: 20px;
+}
+
+/* Specific Badge Indicator for Filter Button */
+#filter-toggle-btn .badge-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #d9534f;
+    padding: 0;
+    min-width: auto;
+    border: 2px solid #fff;
+}
+
+/* Preset Dropdown Container */
+#preset-control-dropdown {
+    margin-right: 15px;
+    /* Spacing between buttons and search block */
+}
+
+/* Minimal spacing adjustments for the toolbar when using round buttons */
+.stock-list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stock-list-toolbar>.btn-default:not(.btn-icon-round) {
+    /* Keep old margin for backwards compatibility if needed */
+    margin-right: 15px;
+}
+
 
 .offer-total-amount {
     font-size: 22px;
