@@ -296,7 +296,18 @@ $(function () {
             activeItems.forEach(item => {
                 const qty = parseInt(item.submittedQty || item.qty || 0);
                 const price = parseFloat(item.submittedPrice || item.price || 0);
+                const listPrice = parseFloat(item.listPrice || 0);
                 const isSelected = this.selectedSkus.has(item.sku) ? 'checked' : '';
+
+                let priceHtml = `<span>$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                if (listPrice > 0 && price < listPrice) {
+                    priceHtml = `
+                        <div style="text-decoration: line-through; color: #999; font-size: 12px; line-height: 1; text-align: right;">$${listPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div style="font-weight: 600; color: #0070B9; line-height: 1.2; margin-top: 2px; text-align: right;">
+                            <span>$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    `;
+                }
 
                 html += `
                     <div class="cart-item-row">
@@ -312,9 +323,9 @@ $(function () {
                             </div>
                         </div>
                         <div class="cart-item-details">
-                            <div class="cart-item-price-info">
-                                <span class="text-muted" style="font-size: 12px; display:block;">Price</span>
-                                <span>$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <div class="cart-item-price-info" style="min-width: 80px;">
+                                <span class="text-muted" style="font-size: 12px; display:block; margin-bottom: 2px;">Price</span>
+                                ${priceHtml}
                             </div>
                             <div class="cart-item-qty">
                                 <span class="text-muted" style="font-size: 12px; display:block;">Qty</span>
