@@ -378,13 +378,22 @@ $(function () {
             'click .btn-toggle-edit-mode': 'enableEditMode',
             'click .btn-cancel-edit-mode': 'disableEditMode',
             'click .bulk-action-checkbox': 'handleCheckboxToggle',
+            'click .bulk-group-checkbox': 'handleGroupCheckboxToggle',
             'click .btn-bulk-cancel': 'bulkCancel',
+            'click .btn-bulk-unpin': 'bulkUnpin',
+            'click .btn-bulk-quick-offer': 'bulkQuickOfferPrompt',
             'click .btn-bulk-cart': 'bulkAddToCart',
             'click .btn-bulk-update': 'openBulkUpdateModal',
+            'click #btn-bulk-quick-offer-confirm': 'executeQuickOffer',
             'click .btn-batch-select-all': 'batchSelectAll',
             'click .btn-batch-reverse': 'batchReverse',
             'click .btn-batch-clear': 'batchClear',
-            'click #btn-scroll-top': 'scrollToTop'
+            'click #btn-scroll-top': 'scrollToTop',
+            'mousedown .product-title, .offer-variant-title, .variant-color': 'startLongPress',
+            'touchstart .product-title, .offer-variant-title, .variant-color': 'startLongPress',
+            'mouseup .product-title, .offer-variant-title, .variant-color': 'cancelLongPress',
+            'mouseleave .product-title, .offer-variant-title, .variant-color': 'cancelLongPress',
+            'touchend .product-title, .offer-variant-title, .variant-color': 'cancelLongPress'
         },
 
         viewMode: 'pinned', // 'pinned' (was selected) or 'active'
@@ -397,6 +406,8 @@ $(function () {
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
             this.listenTo(Backbone, 'offerDrawer:open', this.openDrawer);
+
+            this.longPressTimer = null;
 
             // Add scroll listener for FAB
             this.$('.drawer-body').on('scroll', (e) => {
@@ -590,16 +601,69 @@ $(function () {
             this.updateBulkFooterState();
         },
 
+        handleGroupCheckboxToggle: function (e) {
+            const groupCheckbox = $(e.currentTarget);
+            const groupKey = groupCheckbox.data('group');
+            const isChecked = groupCheckbox.is(':checked');
+
+            const groupEl = groupCheckbox.closest('.offer-group');
+            const variantCheckboxes = groupEl.find('.bulk-action-checkbox');
+
+            variantCheckboxes.each((i, el) => {
+                const cb = $(el);
+                const sku = cb.val();
+                if (isChecked) {
+                    this.selectedSkus.add(sku);
+                    cb.prop('checked', true);
+                } else {
+                    this.selectedSkus.delete(sku);
+                    cb.prop('checked', false);
+                }
+            });
+
+            this.updateBulkFooterState();
+        },
+
+        updateGroupCheckboxesState: function () {
+            this.$('.offer-group').each((i, groupEl) => {
+                const $group = $(groupEl);
+                const $groupCheckbox = $group.find('.bulk-group-checkbox');
+                if ($groupCheckbox.length === 0) return;
+
+                const variantCheckboxes = $group.find('.bulk-action-checkbox');
+                const totalVariants = variantCheckboxes.length;
+                if (totalVariants === 0) return;
+
+                const checkedVariants = variantCheckboxes.filter(':checked').length;
+
+                if (checkedVariants === 0) {
+                    $groupCheckbox.prop('checked', false);
+                    $groupCheckbox.prop('indeterminate', false);
+                } else if (checkedVariants === totalVariants) {
+                    $groupCheckbox.prop('checked', true);
+                    $groupCheckbox.prop('indeterminate', false);
+                } else {
+                    $groupCheckbox.prop('checked', false);
+                    $groupCheckbox.prop('indeterminate', true);
+                }
+            });
+        },
+
         updateBulkFooterState: function () {
             const count = this.selectedSkus.size;
             this.$('#bulk-selected-count').text(count);
 
             const hasSelection = count > 0;
             this.$('.btn-bulk-cancel').prop('disabled', !hasSelection);
+            this.$('.btn-bulk-unpin').prop('disabled', !hasSelection);
+            this.$('.btn-bulk-quick-offer').prop('disabled', !hasSelection);
             this.$('.btn-bulk-update').prop('disabled', !hasSelection);
             this.$('.btn-bulk-cart').prop('disabled', !hasSelection);
 
             this.$('.bulk-actions').css('display', 'flex');
+            
+            // Re-eval group checkbox states whenever selection changes
+            this.updateGroupCheckboxesState();
         },
 
         // --- Batch Control Row Handlers ---
@@ -639,7 +703,115 @@ $(function () {
             this.updateBulkFooterState();
         },
 
+        // --- Long Press Logic ---
+        startLongPress: function (e) {
+            // Only left clicks or touch
+            if (e.type === 'mousedown' && e.button !== 0) return;
+            
+            this.cancelLongPress(); // Clear any existing
+            
+            const overlay = $('#long-press-overlay-container');
+            
+            // Position overlay naturally near cursor
+            let clientX, clientY;
+            if (e.type === 'touchstart') {
+                clientX = e.originalEvent.touches[0].clientX;
+                clientY = e.originalEvent.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            overlay.css({
+                top: clientY + 'px',
+                left: clientX + 'px'
+            }).removeClass('active').addClass('visible');
+            
+            // Force reflow to ensure the CSS transition triggers from 0
+            overlay[0].offsetHeight;
+            
+            overlay.addClass('active');
+            
+            this.longPressTimer = setTimeout(() => {
+                // Success
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+                
+                if (this.editMode) {
+                    this.disableEditMode();
+                } else {
+                    this.enableEditMode();
+                }
+                
+                this.cancelLongPress();
+            }, 600); // 600ms long press duration to match CSS
+        },
+        
+        cancelLongPress: function () {
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+                this.longPressTimer = null;
+            }
+            const overlay = $('#long-press-overlay-container');
+            overlay.removeClass('active visible');
+        },
+
         // --- Bulk Action Handlers --- 
+
+        bulkUnpin: function () {
+            if (this.selectedSkus.size === 0) return;
+            const skus = Array.from(this.selectedSkus);
+
+            skus.forEach(sku => {
+                const item = OfferBuilderState.pinnedItems[sku];
+                if (item) {
+                    item.isPinned = false;
+                    if (!item.offerStatus || item.offerStatus === 'Draft') {
+                        delete OfferBuilderState.pinnedItems[sku];
+                    }
+                }
+            });
+
+            OfferBuilderState.save();
+            Backbone.trigger('offerBuilder:update');
+            this.disableEditMode();
+            showToast('Unpinned ' + skus.length + ' items.', 'success');
+        },
+
+        bulkQuickOfferPrompt: function () {
+            $('#bulk-quick-offer-modal').modal('show');
+            $('.bulk-quick-offer-count').text(this.selectedSkus.size);
+            $('#bulk-quick-offer-value').val('');
+        },
+
+        executeQuickOffer: function() {
+            const newPrice = parseFloat($('#bulk-quick-offer-value').val());
+            if (isNaN(newPrice) || newPrice <= 0) {
+                alert('Please enter a valid price greater than 0');
+                return;
+            }
+
+            const skus = Array.from(this.selectedSkus);
+            skus.forEach(sku => {
+                let item = OfferBuilderState.pinnedItems[sku];
+                if (item) {
+                    item.price = newPrice.toFixed(2);
+                    item.qty = item.qty || 1;
+                    if (!item.submittedQty) {
+                        item.submittedQty = item.qty;
+                        item.submittedPrice = item.price;
+                    }
+                    item.offerStatus = 'Pending';
+                }
+            });
+
+            OfferBuilderState.save();
+            Backbone.trigger('offerBuilder:update');
+            $('#bulk-quick-offer-modal').modal('hide');
+            this.disableEditMode();
+            showToast('Created quick offers for ' + skus.length + ' items.', 'success');
+        },
 
         bulkCancel: function () {
             this.pendingBulkAction = { type: 'cancel' };
@@ -796,7 +968,8 @@ $(function () {
             const msgMap = {
                 'cancel': 'Cancelled ' + skus.length + ' offers.',
                 'add_to_cart': 'Added ' + skus.length + ' offers to cart.',
-                'update_price': 'Updated prices for ' + skus.length + ' offers.'
+                'update_price': 'Updated prices for ' + skus.length + ' offers.',
+                'unpin': 'Unpinned ' + skus.length + ' items.'
             };
             showToast(msgMap[type], 'success');
 
@@ -834,40 +1007,10 @@ $(function () {
             if (this.viewMode === 'pinned') {
                 // Show pinned items
                 items = allItems.filter(item => item.isPinned);
-                this.$('.drawer-status-filter').hide();
-                this.$('.btn-toggle-edit-mode').hide();
-                this.$('.btn-cancel-edit-mode').hide();
-                this.editMode = false;
             } else if (this.viewMode === 'active') {
                 // Show items with active status (not Draft and not In Cart)
                 activeItemsBase = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart');
                 items = [...activeItemsBase];
-
-                if (this.editMode) {
-                    this.$('.drawer-status-filter').hide();
-                    this.$('.drawer-search-input').parent().hide();
-                    this.$('.btn-toggle-edit-mode').hide();
-                    this.$('.btn-cancel-edit-mode').show();
-
-                    this.$('#edit-mode-header-title').show();
-                    this.$('.batch-quick-actions').css('display', 'flex'); // Show advanced controls
-
-                    // Swap footers
-                    this.$('#standard-drawer-footer').hide();
-                    this.$('#bulk-action-footer').css('display', 'flex');
-                } else {
-                    this.$('.drawer-status-filter').show();
-                    this.$('.drawer-search-input').parent().show();
-                    this.$('.btn-toggle-edit-mode').show();
-                    this.$('.btn-cancel-edit-mode').hide();
-
-                    this.$('#edit-mode-header-title').hide();
-                    this.$('.batch-quick-actions').hide(); // Hide advanced controls
-
-                    // Swap footers
-                    this.$('#standard-drawer-footer').css('display', 'flex');
-                    this.$('#bulk-action-footer').hide();
-                }
 
                 // Populate Status Filter Dropdown
                 const statusCounts = _.countBy(activeItemsBase, 'offerStatus');
@@ -902,6 +1045,52 @@ $(function () {
                     items = items.filter(item => item.offerStatus === this.statusFilter);
                 }
             }
+
+            // Handle editMode UI toggling unconditionally for both viewModes
+            if (this.editMode) {
+                if (this.viewMode === 'active') {
+                    this.$('.drawer-status-filter').hide();
+                } else {
+                    this.$('.drawer-status-filter').hide(); // Always hidden in pinned anyway
+                }
+                this.$('.drawer-search-input').parent().hide();
+                this.$('.btn-toggle-edit-mode').hide();
+                this.$('.btn-cancel-edit-mode').show();
+
+                this.$('#edit-mode-header-title').show();
+                this.$('.batch-quick-actions').css('display', 'flex'); // Show advanced controls
+
+                // Swap footers
+                this.$('#standard-drawer-footer').hide();
+                this.$('#bulk-action-footer').css('display', 'flex');
+                
+                // Toggle view-specific buttons
+                if (this.viewMode === 'pinned') {
+                    this.$('.active-only').hide();
+                    this.$('.pinned-only').show();
+                } else {
+                    this.$('.pinned-only').hide();
+                    this.$('.active-only').show();
+                }
+            } else {
+                if (this.viewMode === 'active') {
+                    this.$('.drawer-status-filter').show();
+                } else {
+                    this.$('.drawer-status-filter').hide(); // Always hidden in pinned
+                }
+                this.$('.drawer-search-input').parent().show();
+                this.$('.btn-toggle-edit-mode').show();
+                this.$('.btn-cancel-edit-mode').hide();
+
+                this.$('#edit-mode-header-title').hide();
+                this.$('.batch-quick-actions').hide(); // Hide advanced controls
+
+                // Swap footers
+                this.$('#standard-drawer-footer').css('display', 'flex');
+                this.$('#bulk-action-footer').hide();
+            }
+
+            // (Dropdown logic was extracted to the above block)
 
             // Apply Text Search Filter
             if (this.searchTerm) {
@@ -966,18 +1155,20 @@ $(function () {
                 }
 
                 let unpinnedCount = 0;
-                if (window.stockCollection) {
+                if (window.MockApi && window.MockApi.getGroup) {
                     const [mfr, modelName, grade, warehouse] = groupKey.split('|');
-                    window.stockCollection.each(groupModel => {
-                        const gm = groupModel.toJSON();
-                        if ((gm.model === modelName) && (gm.grade === grade) && (gm.warehouse === warehouse)) {
-                            (gm.variants || []).forEach(v => {
-                                if (!OfferBuilderState.pinnedItems[v.sku]) {
-                                    unpinnedCount++;
-                                }
-                            });
-                        }
-                    });
+                    const groupData = window.MockApi.getGroup(mfr, modelName, grade, warehouse);
+                    if (groupData) {
+                        (groupData.variants || []).forEach(v => {
+                            // Skip counting items that are active offers
+                            if (v.offerStatus && v.offerStatus !== 'Draft') return;
+
+                            const stateItem = OfferBuilderState.pinnedItems[v.sku];
+                            if (!stateItem || !stateItem.isPinned) {
+                                unpinnedCount++;
+                            }
+                        });
+                    }
                 }
 
                 const $groupEl = $(this.groupTemplate({
@@ -1058,16 +1249,15 @@ $(function () {
                     $variantEl.find('.item-total').html(this.formatMoneyHTML(initialTotal));
 
                     this.validateAndShowFeedback($variantEl);
-                    // Ensure the checkbox state matches the model if in edit mode
                     if (this.editMode) {
                         $variantEl.find('.bulk-action-checkbox').prop('checked', isSelected);
                         $variantEl.addClass('edit-mode');
                         $variantEl.find('.bulk-action-checkbox-container').show();
 
-                        // Disable inputs and hide individual overflow menus
+                        // Form state
                         $variantEl.find('.control-input').prop('disabled', true);
                         $variantEl.find('.variant-menu-container').hide();
-                        $variantEl.find('.add-to-cart-action').hide(); // Also hide inline link actions
+                        $variantEl.find('.add-to-cart-action').hide(); 
                         $variantEl.find('.offer-item-clear').hide();
                         $variantEl.find('.offer-item-unpin').hide();
                     }
@@ -1078,6 +1268,10 @@ $(function () {
                         totalValue += (item.qty * item.price);
                     }
                 });
+
+                if (this.editMode) {
+                    $groupEl.find('.batch-group-checkbox-container').css('display', 'flex');
+                }
 
                 listContainer.append($groupEl);
             });
@@ -1145,56 +1339,42 @@ $(function () {
             const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
             console.log('Adding all for group:', groupKey);
 
-            if (window.stockCollection) {
+            if (window.MockApi && window.MockApi.getGroup) {
                 const [mfr, modelName, grade, warehouse] = groupKey.split('|');
-
-                // Filter items that match the group attributes
-                // Note: stockCollection contains Group Models, not variants roughly. 
-                // Wait, stockCollection models HAVE variants. We need to find the correct group model and then add all its variants?
-                // The Stock List groups by Model+Grade+Warehouse basically (actually manufacturer|model|capacity|grade|warehouse).
-                // Our groupKey in offer drawer is manufacturer|model|grade|warehouse. 
-                // Let's find matches in the Mock Data structure.
-
                 let addedCount = 0;
 
-                window.stockCollection.each(groupModel => {
-                    const gm = groupModel.toJSON();
-                    // Check if group model matches our target attributes
-                    // Note: Mock data structure might be slightly different so loosen match if needed
-                    // But usually stock list groups ARE these attributes.
-                    if ((gm.model === modelName) &&
-                        (gm.grade === grade) &&
-                        (gm.warehouse === warehouse)) {
+                const groupData = window.MockApi.getGroup(mfr, modelName, grade, warehouse);
+                if (groupData) {
+                    (groupData.variants || []).forEach(v => {
+                        // Skip variants that have an active offer
+                        if (v.offerStatus && v.offerStatus !== 'Draft') return;
 
-                        // Add all variants in this group
-                        (gm.variants || []).forEach(v => {
-                            const attrs = {
-                                sku: v.sku,
-                                manufacturer: gm.manufacturer,
-                                model: gm.model,
-                                grade: gm.grade,
-                                warehouse: gm.warehouse,
-                                description: ((v.color || '') + ' ' + (v.network || '')).trim(),
-                                qty: v.offerQty || 0,
-                                price: v.offerPrice || 0,
-                                availableQty: v.quantity,
-                                listPrice: v.price,
-                                offerStatus: v.offerStatus
-                            };
+                        const attrs = {
+                            sku: v.sku,
+                            manufacturer: groupData.manufacturer,
+                            model: groupData.model,
+                            grade: groupData.grade,
+                            warehouse: groupData.warehouse,
+                            description: ((v.color || '') + ' ' + (v.network || '')).trim(),
+                            qty: v.offerQty || 0,
+                            price: v.offerPrice || 0,
+                            availableQty: v.quantity,
+                            listPrice: v.price,
+                            offerStatus: v.offerStatus
+                        };
 
-                            if (!OfferBuilderState.pinnedItems[attrs.sku]) {
-                                OfferBuilderState.pinnedItems[attrs.sku] = attrs;
-                                addedCount++;
-                            }
-                        });
-                    }
-                });
+                        if (!OfferBuilderState.pinnedItems[attrs.sku]) {
+                            OfferBuilderState.pinnedItems[attrs.sku] = attrs;
+                            addedCount++;
+                        }
+                    });
+                }
 
                 console.log(`Added ${addedCount} items to group ${groupKey}`);
                 OfferBuilderState.save();
             } else {
-                console.error('StockCollection not found');
-                alert('Cannot access stock data to add items.');
+                console.error('MockApi.getGroup not found');
+                alert('Cannot access master stock data to add items.');
             }
         },
 
@@ -1203,21 +1383,29 @@ $(function () {
             const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
             console.log('Adding similar items for group:', groupKey);
 
-            if (window.stockCollection) {
+            if (window.MockApi && window.MockApi.getGroup) {
                 const [mfr, modelName, grade, warehouse] = groupKey.split('|');
                 let addedCount = 0;
 
-                window.stockCollection.each(groupModel => {
-                    const gm = groupModel.toJSON();
-                    if ((gm.model === modelName) && (gm.grade === grade) && (gm.warehouse === warehouse)) {
-                        (gm.variants || []).forEach(v => {
-                            if (!OfferBuilderState.pinnedItems[v.sku]) {
+                const groupData = window.MockApi.getGroup(mfr, modelName, grade, warehouse);
+                if (groupData) {
+                    (groupData.variants || []).forEach(v => {
+                        // Skip variants that have an active offer
+                        if (v.offerStatus && v.offerStatus !== 'Draft') return;
+
+                        const stateItem = OfferBuilderState.pinnedItems[v.sku];
+                        if (!stateItem || !stateItem.isPinned) {
+                            // If it already exists but is unpinned, just set it to pinned
+                            if (stateItem) {
+                                stateItem.isPinned = true;
+                                addedCount++;
+                            } else {
                                 const attrs = {
                                     sku: v.sku,
-                                    manufacturer: gm.manufacturer,
-                                    model: gm.model,
-                                    grade: gm.grade,
-                                    warehouse: gm.warehouse,
+                                    manufacturer: groupData.manufacturer,
+                                    model: groupData.model,
+                                    grade: groupData.grade,
+                                    warehouse: groupData.warehouse,
                                     description: ((v.color || '') + ' ' + (v.network || '')).trim(),
                                     qty: v.offerQty || 0,
                                     price: v.offerPrice || 0,
@@ -1229,9 +1417,9 @@ $(function () {
                                 OfferBuilderState.pinnedItems[attrs.sku] = attrs;
                                 addedCount++;
                             }
-                        });
-                    }
-                });
+                        }
+                    });
+                }
                 
                 if (addedCount > 0) {
                     OfferBuilderState.save();

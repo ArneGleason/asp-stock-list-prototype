@@ -197,6 +197,16 @@
 
     // Mock API Object
     const MockApi = {
+        getGroup: function (mfr, modelName, grade, warehouse) {
+            // Find the master group in ALL_DATA without relying on UI pagination state
+            return ALL_DATA.find(g => 
+                (g.manufacturer === mfr) && 
+                (g.model === modelName) && 
+                (g.grade === grade) && 
+                (g.warehouse === warehouse)
+            );
+        },
+
         getGroups: function (params) {
             console.log("Mock API Request:", params);
 
