@@ -490,9 +490,20 @@
 
 
                     <span class="price-range"><%= priceRange %></span>
-                    <button class="btn btn-link btn-pin" data-id="<%= id %>" style="padding: 0; color: #8BA1A7; margin-left: 10px;">
-                        <span class="material-icons">bookmark_border</span>
-                    </button>
+                    <% 
+                        var allActive = variants.length > 0 && variants.every(function(v) { 
+                            return v.offerStatus && v.offerStatus !== 'Draft'; 
+                        }); 
+                    %>
+                    <% if (allActive) { %>
+                        <button class="btn btn-link btn-bolt-group" data-id="<%= id %>" title="Active Offers" style="padding: 0; color: #28a745; margin-left: 10px; cursor: default;">
+                            <span class="material-icons" style="font-size: 20px;">bolt</span>
+                        </button>
+                    <% } else { %>
+                        <button class="btn btn-link btn-pin" data-id="<%= id %>" title="Pin/Unpin Group" style="padding: 0; color: #8BA1A7; margin-left: 10px;">
+                            <span class="material-icons">bookmark_border</span>
+                        </button>
+                    <% } %>
                 </div>
             </div>
 
@@ -522,10 +533,11 @@
                                 <button class="btn btn-xs <%= statusClass %> btn-offer-status" data-sku="<%= variant.sku %>" data-status="<%= variant.offerStatus %>">
                                     <%= variant.offerStatus.toUpperCase() %><%= qtyLabel %>
                                 </button>
+                                <span class="material-icons" title="Active Offer" style="color: #28a745; margin-left: 5px; font-size: 18px; vertical-align: middle;">bolt</span>
                             <% } else { %>
                                 <button class="btn btn-default btn-offer" data-id="<%= id %>" data-sku="<%= variant.sku %>">OFFER</button>
                                 <button class="btn btn-primary btn-buy" data-id="<%= id %>" data-sku="<%= variant.sku %>">BUY</button>
-                                <button class="btn btn-link btn-pin-variant" data-sku="<%= variant.sku %>" style="padding: 0; color: #8BA1A7; margin-left: 5px;">
+                                <button class="btn btn-link btn-pin-variant" data-sku="<%= variant.sku %>" title="Pin/Unpin Variant" style="padding: 0; color: #8BA1A7; margin-left: 5px;">
                                     <span class="material-icons">bookmark_border</span>
                                 </button>
                             <% } %>
@@ -679,6 +691,9 @@
                     <% _.each(warehouses, function(w) { %>
                         <span class="chip warehouse"><%= w %></span>
                     <% }); %>
+                    <% if (typeof unpinnedCount !== 'undefined' && unpinnedCount > 0) { %>
+                        <button class="btn btn-xs btn-add-similar" style="margin-left: 10px; font-size: 11px; color: #0070B9; border: 1px solid #0070B9; background: white; border-radius: 4px;">+ <%= unpinnedCount %> Similar Items</button>
+                    <% } %>
                 </div>
                 <!-- Optional: Add remove group button here if needed -->
                 <!-- <div class="header-right">...</div> -->

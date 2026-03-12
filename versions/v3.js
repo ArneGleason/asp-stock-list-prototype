@@ -9,6 +9,31 @@ $(function () {
 
     // --- Models & Collections ---
 
+    window.isExpandedAll = false;
+
+    window.isExpandedAll = false;
+
+    const StockListPresets = {
+        presets: {}, // Map of slot ('Default', 'A', 'B' etc) -> filters object
+        currentSlot: null,
+
+        init: function () {
+            const stored = localStorage.getItem('stockListPresets_v3');
+            if (stored) {
+                this.presets = JSON.parse(stored);
+            }
+        },
+
+        save: function () {
+            localStorage.setItem('stockListPresets_v3', JSON.stringify(this.presets));
+        },
+
+        renderMenu: function ($menu) {
+            // Keep the core slot rendering so we can reuse it, but don't inject into $menu implicitly.
+            // We'll let PresetControlView handle the exact DOM structure.
+        }
+    };
+
     const OfferBuilderState = {
         pinnedItems: {}, // Map of SKU -> { item data }
 
@@ -53,6 +78,7 @@ $(function () {
                     description: variant.description || ((variant.color || '') + ' ' + (variant.network || '')).trim(),
                     grade: variant.grade,
                     warehouse: variant.warehouse,
+                    lockStatus: variant.lockStatus,
                     qty: variant.offerQty || 0,
                     price: variant.offerPrice || 0,
                     submittedQty: variant.offerQty || 0, // Snapshot for comparison
@@ -109,6 +135,7 @@ $(function () {
                             description: ((v.color || '') + ' ' + (v.network || '')).trim(),
                             grade: v.grade || groupModel.get('grade'),
                             warehouse: v.warehouse || groupModel.get('warehouse'),
+                            lockStatus: v.lockStatus,
                             qty: v.offerQty || 0,
                             price: v.offerPrice || 0,
                             submittedQty: v.offerQty || 0,
@@ -187,6 +214,7 @@ $(function () {
                             description: v.description || ((v.color || '') + ' ' + (v.network || '')).trim(),
                             grade: v.grade,
                             warehouse: v.warehouse,
+                            lockStatus: v.lockStatus,
                             qty: v.offerQty || 0,
                             price: v.offerPrice || 0,
                             submittedQty: submittedQty,
@@ -221,6 +249,7 @@ $(function () {
         events: {
             'click .btn-view-pinned': 'openPinnedView',
             'click .btn-view-active': 'openActiveView',
+            'click .btn-cart': 'openCartView', // Navigate to Cart Page
             'click .offer-bar-menu-btn': 'toggleMenu',
             'click .action-clear-pinned': 'clearPinned'
         },
@@ -245,8 +274,8 @@ $(function () {
             // Count Pinned
             const pinnedCount = allItems.filter(item => item.isPinned).length;
 
-            // Count Active (Post-Draft)
-            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
+            // Count Active (Post-Draft, Not In Cart)
+            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart').length;
 
             // Count Cart (Ready)
             const cartCount = allItems.filter(item => item.offerStatus === 'In Cart').length;
@@ -275,6 +304,11 @@ $(function () {
         openActiveView: function (e) {
             e.preventDefault();
             Backbone.trigger('offerDrawer:open', 'active');
+        },
+
+        openCartView: function (e) {
+            e.preventDefault();
+            window.location.href = 'v3-cart.html';
         },
 
         toggleMenu: function (e) {
@@ -314,6 +348,7 @@ $(function () {
 
         events: {
             'click .drawer-close-btn': 'closeDrawer',
+            'click .btn-view-cart-drawer': 'openCartView',
             'click .offer-item-unpin': 'confirmUnpin',
             'click .offer-item-clear': 'clearItemInputs',
             'change .control-input': 'updateItemState',
@@ -334,14 +369,45 @@ $(function () {
             'click .action-cancel-offer': 'cancelOffer',
             'click .add-to-cart-action': 'handleMenuAddToCart',
             'click .action-add-to-cart-menu': 'handleMenuAddToCart',
-            'click .view-tab': 'switchView'
+            'click .view-tab': 'switchView',
+            'keyup .drawer-search-input': 'handleDrawerSearch',
+            'click .drawer-search-clear': 'clearDrawerSearch',
+            'click .status-filter-option': 'setStatusFilter',
+            'click .action-clear-filters': 'clearSearchAndFilter',
+            'click .btn-toggle-edit-mode': 'enableEditMode',
+            'click .btn-cancel-edit-mode': 'disableEditMode',
+            'click .bulk-action-checkbox': 'handleCheckboxToggle',
+            'click .btn-bulk-cancel': 'bulkCancel',
+            'click .btn-bulk-cart': 'bulkAddToCart',
+            'click .btn-bulk-update': 'openBulkUpdateModal',
+            'click .btn-batch-select-all': 'batchSelectAll',
+            'click .btn-batch-reverse': 'batchReverse',
+            'click .btn-batch-clear': 'batchClear',
+            'click #btn-scroll-top': 'scrollToTop'
         },
 
         viewMode: 'pinned', // 'pinned' (was selected) or 'active'
+        searchTerm: '',
+        statusFilter: '',
+        editMode: false,
+        selectedSkus: new Set(),
+        lastCheckedIndex: null,
 
         initialize: function () {
             this.listenTo(Backbone, 'offerBuilder:update', this.render);
             this.listenTo(Backbone, 'offerDrawer:open', this.openDrawer);
+
+            // Add scroll listener for FAB
+            this.$('.drawer-body').on('scroll', (e) => {
+                const scrollTop = $(e.currentTarget).scrollTop();
+                const btn = this.$('#btn-scroll-top');
+
+                if (scrollTop > 200) {
+                    btn.addClass('visible');
+                } else {
+                    btn.removeClass('visible');
+                }
+            });
 
             // Backdrop click handler
             $('.drawer-backdrop').on('click', () => {
@@ -359,12 +425,45 @@ $(function () {
                     this.$('.variant-overflow-menu').removeClass('open');
                 }
             });
+
+            // Bulk Confirmation Input validation
+            $('#bulk-confirm-input').on('input', this.handleBulkConfirmInput.bind(this));
+            $('#btn-execute-bulk-action').on('click', this.executeBulkAction.bind(this));
+
+            // Bulk Update Review Button
+            $('#btn-bulk-update-review').on('click', () => {
+                const type = $('#bulk-update-type').val();
+                const v = parseFloat($('#bulk-update-value').val());
+                if (isNaN(v) || v <= 0) return alert('Please enter a valid amount.');
+
+                $('#bulk-update-price-modal').modal('hide');
+
+                let actionStr = '';
+                if (type === 'increase_percent') actionStr = 'increase prices by ' + v + '%';
+                if (type === 'decrease_percent') actionStr = 'decrease prices by ' + v + '%';
+                if (type === 'increase_amount') actionStr = 'increase prices by $' + v.toFixed(2);
+                if (type === 'decrease_amount') actionStr = 'decrease prices by $' + v.toFixed(2);
+
+                this.pendingBulkAction = { type: 'update_price', payload: { action: type, value: v } };
+                this.promptBulkConfirm('Update Prices', `You are about to <strong>${actionStr}</strong> for <strong>${this.selectedSkus.size}</strong> active offers.`);
+            });
+        },
+
+        scrollToTop: function () {
+            this.$('.drawer-body').animate({ scrollTop: 0 }, 300);
+            this.$('#btn-scroll-top').blur();
         },
 
         switchView: function (e) {
             const btn = $(e.currentTarget);
             const view = btn.data('view');
             if (view === this.viewMode) return;
+
+            // Reset state on tab switch
+            if (this.editMode) {
+                this.disableEditMode();
+            }
+            this.$('.drawer-body').scrollTop(0);
 
             this.viewMode = view;
             // Update tabs UI
@@ -390,6 +489,319 @@ $(function () {
             this.render();
         },
 
+        handleDrawerSearch: function (e) {
+            const input = $(e.currentTarget);
+            this.searchTerm = input.val().toLowerCase();
+
+            const clearIcon = this.$('.drawer-search-clear');
+            if (this.searchTerm.length > 0) {
+                clearIcon.show();
+            } else {
+                clearIcon.hide();
+            }
+
+            this.render();
+        },
+
+        clearDrawerSearch: function (e) {
+            this.$('.drawer-search-input').val('');
+            this.$('.drawer-search-clear').hide();
+            this.searchTerm = '';
+            this.render();
+        },
+
+        setStatusFilter: function (e) {
+            e.preventDefault();
+            const option = $(e.currentTarget);
+            const status = option.data('status');
+
+            this.statusFilter = status || '';
+
+            // Update dropdown button text
+            const label = status ? status : '- status -';
+            this.$('#statusFilterDropdown .filter-label').text(label);
+
+            this.render();
+        },
+
+        clearSearchAndFilter: function (e) {
+            e.preventDefault();
+            this.$('.drawer-search-input').val('');
+            this.$('.drawer-search-clear').hide();
+            this.searchTerm = '';
+
+            this.statusFilter = '';
+            this.$('#statusFilterDropdown .filter-label').text('- status -');
+
+            this.render();
+        },
+
+        enableEditMode: function () {
+            this.editMode = true;
+            this.selectedSkus.clear();
+            this.lastCheckedIndex = null;
+            this.render();
+        },
+
+        disableEditMode: function () {
+            this.editMode = true; // Was true, need to reset it to false
+            this.editMode = false;
+            this.selectedSkus.clear();
+            this.lastCheckedIndex = null;
+            this.render();
+        },
+
+        handleCheckboxToggle: function (e) {
+            const checkbox = $(e.currentTarget);
+            const sku = checkbox.val();
+            const isChecked = checkbox.is(':checked');
+
+            const allCheckboxes = this.$('.bulk-action-checkbox').toArray();
+            const currentIndex = allCheckboxes.indexOf(checkbox[0]);
+
+            if (e.shiftKey && this.lastCheckedIndex !== null) {
+                // Determine the range
+                const start = Math.min(this.lastCheckedIndex, currentIndex);
+                const end = Math.max(this.lastCheckedIndex, currentIndex);
+
+                // Apply the "isChecked" state of the current click to the entire range
+                for (let i = start; i <= end; i++) {
+                    const cb = $(allCheckboxes[i]);
+                    const iterSku = cb.val();
+                    if (isChecked) {
+                        this.selectedSkus.add(iterSku);
+                        cb.prop('checked', true);
+                    } else {
+                        this.selectedSkus.delete(iterSku);
+                        cb.prop('checked', false);
+                    }
+                }
+            } else {
+                // Standard single click
+                if (isChecked) {
+                    this.selectedSkus.add(sku);
+                } else {
+                    this.selectedSkus.delete(sku);
+                }
+            }
+
+            this.lastCheckedIndex = currentIndex;
+            this.updateBulkFooterState();
+        },
+
+        updateBulkFooterState: function () {
+            const count = this.selectedSkus.size;
+            this.$('#bulk-selected-count').text(count);
+
+            const hasSelection = count > 0;
+            this.$('.btn-bulk-cancel').prop('disabled', !hasSelection);
+            this.$('.btn-bulk-update').prop('disabled', !hasSelection);
+            this.$('.btn-bulk-cart').prop('disabled', !hasSelection);
+
+            this.$('.bulk-actions').css('display', 'flex');
+        },
+
+        // --- Batch Control Row Handlers ---
+
+        batchSelectAll: function () {
+            // Only select items currently rendered in the list (respects search/filters)
+            this.$('.offer-variant-row').each((i, el) => {
+                const sku = $(el).data('sku');
+                if (sku) {
+                    this.selectedSkus.add(sku);
+                    $(el).find('.bulk-action-checkbox').prop('checked', true);
+                }
+            });
+            this.updateBulkFooterState();
+        },
+
+        batchReverse: function () {
+            this.$('.offer-variant-row').each((i, el) => {
+                const sku = $(el).data('sku');
+                if (sku) {
+                    const cb = $(el).find('.bulk-action-checkbox');
+                    if (this.selectedSkus.has(sku)) {
+                        this.selectedSkus.delete(sku);
+                        cb.prop('checked', false);
+                    } else {
+                        this.selectedSkus.add(sku);
+                        cb.prop('checked', true);
+                    }
+                }
+            });
+            this.updateBulkFooterState();
+        },
+
+        batchClear: function () {
+            this.selectedSkus.clear();
+            this.$('.bulk-action-checkbox').prop('checked', false);
+            this.updateBulkFooterState();
+        },
+
+        // --- Bulk Action Handlers --- 
+
+        bulkCancel: function () {
+            this.pendingBulkAction = { type: 'cancel' };
+            this.promptBulkConfirm('Cancel Offers', `You are about to cancel <strong>${this.selectedSkus.size}</strong> active offers.`);
+        },
+
+        bulkAddToCart: function () {
+            this.pendingBulkAction = { type: 'add_to_cart' };
+            this.promptBulkConfirm('Add to Cart', `You are about to move <strong>${this.selectedSkus.size}</strong> active offers to your Cart.`);
+        },
+
+        openBulkUpdateModal: function () {
+            $('#bulk-update-price-modal').modal('show');
+            $('.bulk-update-count').text(this.selectedSkus.size);
+            $('#bulk-update-value').val('');
+        },
+
+        promptBulkConfirm: function (title, actionDesc) {
+            $('#bulk-confirm-title').text(title);
+
+            // -- Calculate Summary Stats --
+            let totalQty = 0;
+            let totalPrice = 0;
+            const statusCounts = {};
+
+            this.selectedSkus.forEach(sku => {
+                const item = OfferBuilderState.pinnedItems[sku];
+                if (item) {
+                    const qty = parseInt(item.qty, 10) || 0;
+                    totalQty += qty;
+                    totalPrice += qty * (parseFloat(item.price) || 0);
+                    const status = item.offerStatus || 'Unknown';
+                    statusCounts[status] = (statusCounts[status] || 0) + 1;
+                }
+            });
+
+            // Build summary HTML block
+            let statsHtml = `<div style="background: #f8f9fa; border: 1px solid #e0e0e0; padding: 12px; border-radius: 4px; margin-top: 15px;">`;
+            statsHtml += `<div style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: #666; margin-bottom: 8px;">Selection Summary</div>`;
+            statsHtml += `<div style="display: flex; gap: 20px; flex-wrap: wrap;">`;
+
+            statsHtml += `<div style="flex: 1; min-width: 80px;">`;
+            statsHtml += `<div style="font-size: 20px; font-weight: 700; color: #333;">${this.selectedSkus.size}</div>`;
+            statsHtml += `<div style="font-size: 12px; color: #666;">Unique Items</div>`;
+            statsHtml += `</div>`;
+
+            statsHtml += `<div style="flex: 1; min-width: 80px;">`;
+            statsHtml += `<div style="font-size: 20px; font-weight: 700; color: #333;">${totalQty}</div>`;
+            statsHtml += `<div style="font-size: 12px; color: #666;">Total Quantity</div>`;
+            statsHtml += `</div>`;
+
+            statsHtml += `<div style="flex: 1; min-width: 80px;">`;
+            statsHtml += `<div style="font-size: 20px; font-weight: 700; color: #333;">$${totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+            statsHtml += `<div style="font-size: 12px; color: #666;">Total Price</div>`;
+            statsHtml += `</div>`;
+
+            statsHtml += `</div>`; // Close flex row
+
+            if (Object.keys(statusCounts).length > 0) {
+                statsHtml += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ccc;">`;
+                statsHtml += `<div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px;">By Current Status:</div>`;
+                statsHtml += `<div style="display: flex; gap: 8px; flex-wrap: wrap;">`;
+                for (const [status, count] of Object.entries(statusCounts)) {
+                    const statusClass = status.toLowerCase().replace(/\\s+/g, '-');
+                    statsHtml += `<span class="variant-status-badge status-${statusClass}">${status} (${count})</span>`;
+                }
+                statsHtml += `</div></div>`;
+            }
+
+            statsHtml += `</div>`; // Close stats container
+
+            $('#bulk-confirm-desc').html(actionDesc + statsHtml);
+            $('#bulk-confirm-input').val('');
+            $('#btn-execute-bulk-action').prop('disabled', true);
+
+            // Generate a random confirmation word just to make sure they read it (could be hardcoded 'CONFIRM')
+            const confirmWord = 'CONFIRM';
+            $('#bulk-confirm-word').text(confirmWord);
+
+            $('#bulk-confirm-modal').modal('show');
+        },
+
+        handleBulkConfirmInput: function (e) {
+            const inputVal = $(e.currentTarget).val().trim().toUpperCase();
+            const requiredVal = $('#bulk-confirm-word').text().trim().toUpperCase();
+            $('#btn-execute-bulk-action').prop('disabled', inputVal !== requiredVal);
+        },
+
+        executeBulkAction: function () {
+            if (!this.pendingBulkAction) return;
+
+            const skus = Array.from(this.selectedSkus);
+            const type = this.pendingBulkAction.type;
+            const payload = this.pendingBulkAction.payload;
+
+            skus.forEach(sku => {
+                const item = OfferBuilderState.pinnedItems[sku];
+                if (!item) return;
+
+                if (type === 'cancel') {
+                    item.offerStatus = 'Draft';
+                    // Optionally clear qty/price here, or just reset status
+                } else if (type === 'add_to_cart') {
+                    // Ensure valid qty/price before moving to cart
+                    item.qty = item.qty || item.submittedQty || 1;
+                    item.price = item.price || item.submittedPrice || item.listPrice;
+
+                    item.offerStatus = 'In Cart';
+
+                    // Update snapshots to avoid "Edited" flag since we are committing to this state
+                    item.submittedQty = item.qty;
+                    item.submittedPrice = item.price;
+                } else if (type === 'update_price') {
+                    let newPrice = parseFloat(item.price);
+                    if (isNaN(newPrice)) return;
+
+                    const v = payload.value;
+                    if (payload.action === 'increase_percent') newPrice = newPrice * (1 + (v / 100));
+                    if (payload.action === 'decrease_percent') newPrice = newPrice * (1 - (v / 100));
+                    if (payload.action === 'increase_amount') newPrice = newPrice + v;
+                    if (payload.action === 'decrease_amount') newPrice = Math.max(0, newPrice - v); // Prevent negative
+
+                    item.price = newPrice.toFixed(2);
+                    item.submittedPrice = newPrice.toFixed(2); // If updating active offers directly, we probably update both
+                    // Or it might move it to a state that needs a "Re-submit" action. Assuming direct update for now.
+                }
+            });
+
+            if (type === 'add_to_cart') {
+                // Find all corresponding rows in DOM and animate them
+                const selectedRows = this.$('.offer-variant-row').filter((i, el) => skus.includes($(el).data('sku').toString()));
+
+                selectedRows.addClass('adding-to-cart');
+                selectedRows.find('.bulk-action-checkbox-container').html('<span class="material-icons" style="color: #28a745;">check</span>');
+
+                setTimeout(() => {
+                    selectedRows.addClass('adding-to-cart-sliding');
+
+                    setTimeout(() => {
+                        OfferBuilderState.save();
+                        Backbone.trigger('offerBuilder:update');
+                        $('#bulk-confirm-modal').modal('hide');
+                        this.disableEditMode();
+                    }, 300);
+                }, 500);
+            } else {
+                OfferBuilderState.save();
+                Backbone.trigger('offerBuilder:update');
+                $('#bulk-confirm-modal').modal('hide');
+                this.disableEditMode();
+            }
+
+            // Show toast
+            const msgMap = {
+                'cancel': 'Cancelled ' + skus.length + ' offers.',
+                'add_to_cart': 'Added ' + skus.length + ' offers to cart.',
+                'update_price': 'Updated prices for ' + skus.length + ' offers.'
+            };
+            showToast(msgMap[type], 'success');
+
+            this.pendingBulkAction = null;
+        },
+
         render: function () {
             const listContainer = this.$('.offer-item-list');
             listContainer.empty();
@@ -399,28 +811,123 @@ $(function () {
 
             // Calculate Counts for Tabs
             const pinnedCount = allItems.filter(item => item.isPinned).length;
-            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft').length;
+            const activeCount = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart').length;
+            const cartCount = allItems.filter(item => item.offerStatus === 'In Cart').length;
 
-            console.log('Drawer Render: Pinned=', pinnedCount, 'Active=', activeCount);
+            console.log('Drawer Render: Pinned=', pinnedCount, 'Active=', activeCount, 'Ready=', cartCount);
 
             // Update Tab Badges
             this.$('.view-tab[data-view="pinned"] .badge').text(pinnedCount);
             this.$('.view-tab[data-view="active"] .badge').text(activeCount);
 
+            // Update Cart Button Badge
+            const cartBtn = this.$('.btn-view-cart-drawer');
+            cartBtn.find('.badge').text(cartCount);
+            cartBtn.show();
+            cartBtn.toggleClass('has-items', cartCount > 0);
+
             // Filter based on viewMode
             let items = [];
+            let activeItemsBase = []; // Unfiltered active items for dropdown counts
+
             if (this.viewMode === 'pinned') {
                 // Show pinned items
                 items = allItems.filter(item => item.isPinned);
+                this.$('.drawer-status-filter').hide();
+                this.$('.btn-toggle-edit-mode').hide();
+                this.$('.btn-cancel-edit-mode').hide();
+                this.editMode = false;
             } else if (this.viewMode === 'active') {
-                // Show items with active status (not Draft)
-                items = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft');
+                // Show items with active status (not Draft and not In Cart)
+                activeItemsBase = allItems.filter(item => item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart');
+                items = [...activeItemsBase];
+
+                if (this.editMode) {
+                    this.$('.drawer-status-filter').hide();
+                    this.$('.drawer-search-input').parent().hide();
+                    this.$('.btn-toggle-edit-mode').hide();
+                    this.$('.btn-cancel-edit-mode').show();
+
+                    this.$('#edit-mode-header-title').show();
+                    this.$('.batch-quick-actions').css('display', 'flex'); // Show advanced controls
+
+                    // Swap footers
+                    this.$('#standard-drawer-footer').hide();
+                    this.$('#bulk-action-footer').css('display', 'flex');
+                } else {
+                    this.$('.drawer-status-filter').show();
+                    this.$('.drawer-search-input').parent().show();
+                    this.$('.btn-toggle-edit-mode').show();
+                    this.$('.btn-cancel-edit-mode').hide();
+
+                    this.$('#edit-mode-header-title').hide();
+                    this.$('.batch-quick-actions').hide(); // Hide advanced controls
+
+                    // Swap footers
+                    this.$('#standard-drawer-footer').css('display', 'flex');
+                    this.$('#bulk-action-footer').hide();
+                }
+
+                // Populate Status Filter Dropdown
+                const statusCounts = _.countBy(activeItemsBase, 'offerStatus');
+                const menu = this.$('.drawer-status-filter .dropdown-menu');
+                menu.empty();
+
+                // "Clear" option
+                menu.append(`
+                    <li>
+                        <a class="status-filter-option" data-status="">
+                            - status -
+                        </a>
+                    </li>
+                `);
+
+                // Add an option for each status present
+                Object.keys(statusCounts).sort().forEach(status => {
+                    const statusClass = status.toLowerCase().replace(' ', '-');
+                    menu.append(`
+                        <li>
+                            <a class="status-filter-option" data-status="${status}">
+                                <span class="status-filter-dot ${statusClass}"></span>
+                                ${status}
+                                <span class="status-filter-count">${statusCounts[status]}</span>
+                            </a>
+                        </li>
+                    `);
+                });
+
+                // Apply Status Filter
+                if (this.statusFilter) {
+                    items = items.filter(item => item.offerStatus === this.statusFilter);
+                }
+            }
+
+            // Apply Text Search Filter
+            if (this.searchTerm) {
+                items = items.filter(item => {
+                    const searchString = `
+                        ${item.manufacturer || ''} 
+                        ${item.model || ''} 
+                        ${item.capacity || ''} 
+                        ${item.grade || ''} 
+                        ${item.warehouse || ''} 
+                        ${item.description || ''}
+                    `.toLowerCase();
+                    return searchString.includes(this.searchTerm);
+                });
             }
 
             if (items.length === 0) {
-                const emptyMsg = this.viewMode === 'pinned'
-                    ? 'No pinned items.'
-                    : 'No active offers.';
+                let emptyMsg = '';
+                if (this.viewMode === 'pinned') {
+                    emptyMsg = this.searchTerm ? `No pinned items matching "${this.searchTerm}". <br><a href="#" class="action-clear-filters" style="display:inline-block; margin-top:8px;">Clear search</a>` : 'No pinned items.';
+                } else {
+                    if (this.searchTerm || this.statusFilter) {
+                        emptyMsg = `No active offers matching criteria. <br><a href="#" class="action-clear-filters" style="display:inline-block; margin-top:8px;">Clear search & filters</a>`;
+                    } else {
+                        emptyMsg = 'No active offers.';
+                    }
+                }
                 listContainer.html(`<div class="text-center text-muted" style="padding: 20px;">${emptyMsg}</div>`);
                 this.$('.offer-total-amount').text('$0.00');
                 this.$('.btn-place-offer').prop('disabled', true);
@@ -504,11 +1011,14 @@ $(function () {
                         }
                     }
 
+                    const isSelected = this.editMode && this.selectedSkus.has(item.sku);
+
                     const $variantEl = $(this.variantTemplate({
                         sku: item.sku,
                         model: item.model,
                         grade: item.grade || '',
                         description: item.description || item.grade,
+                        lockStatus: item.lockStatus,
                         qty: item.qty,
                         availableQty: item.availableQty || 999, // Match stored property
                         price: offerPrice,
@@ -531,6 +1041,19 @@ $(function () {
                     $variantEl.find('.item-total').html(this.formatMoneyHTML(initialTotal));
 
                     this.validateAndShowFeedback($variantEl);
+                    // Ensure the checkbox state matches the model if in edit mode
+                    if (this.editMode) {
+                        $variantEl.find('.bulk-action-checkbox').prop('checked', isSelected);
+                        $variantEl.addClass('edit-mode');
+                        $variantEl.find('.bulk-action-checkbox-container').show();
+
+                        // Disable inputs and hide individual overflow menus
+                        $variantEl.find('.control-input').prop('disabled', true);
+                        $variantEl.find('.variant-menu-container').hide();
+                        $variantEl.find('.add-to-cart-action').hide(); // Also hide inline link actions
+                        $variantEl.find('.offer-item-clear').hide();
+                        $variantEl.find('.offer-item-unpin').hide();
+                    }
 
                     $variantsContainer.append($variantEl);
 
@@ -545,6 +1068,10 @@ $(function () {
             // Update total value based on ALL items
             this.updateTotalValue(items);
 
+            // Ensure bulk actions footer state matches the selection set after programmatic updates
+            if (this.editMode) {
+                this.updateBulkFooterState();
+            }
         },
 
         closeDrawer: function () {
@@ -552,6 +1079,18 @@ $(function () {
             $('.drawer-backdrop').removeClass('visible');
             $('body').css('overflow', '');
             this.$('#drawer-overflow-menu').removeClass('open');
+
+            // Reset state
+            if (this.editMode) {
+                this.disableEditMode();
+            }
+            this.$('.drawer-body').scrollTop(0);
+        },
+
+        openCartView: function (e) {
+            e.preventDefault();
+            // Need to close drawer visually before redirecting maybe? Local change is immediate
+            window.location.href = 'v3-cart.html';
         },
 
         toggleMenu: function (e) {
@@ -647,26 +1186,35 @@ $(function () {
             if (e) e.preventDefault();
             this.$('#drawer-overflow-menu').removeClass('open');
 
-            if (confirm("Are you sure you want to reset all offer demo data? This will clear your current offers and generate new random statuses for items.")) {
+            console.log("Resetting Demo Data...");
 
-                // 1. Clear locally pinned items completely
-                OfferBuilderState.clearAll();
+            // 1. Clear locally pinned items completely
+            OfferBuilderState.clearAll();
 
-                // 2. Reset the mock server data and get all generated offers
-                if (window.MockApi && window.MockApi.resetDemoData) {
-                    const allVariants = window.MockApi.resetDemoData();
+            // 2. Reset the mock server data and get all generated offers
+            if (window.MockApi && window.MockApi.resetDemoData) {
+                const selectedVariants = window.MockApi.resetDemoData();
 
-                    // Manually populate group details for the variants based on ALL_DATA
-                    // (The import method expects manufacturer, model, etc.)
-                    // Actually, MockApi's returned variants should probably have this info
-                    // Let's just pass them directly, importActiveOffers will save them.
-                    OfferBuilderState.importActiveOffers(allVariants);
-                }
+                // Import the newly generated items
+                OfferBuilderState.importActiveOffers(selectedVariants);
 
-                // 3. Re-fetch stock data to update the UI paginated view
-                if (window.stockCollection) {
-                    window.stockCollection.fetch({ reset: true });
-                }
+                // Switch view to Active so the user sees the generated statuses
+                this.viewMode = 'active';
+                this.$('.view-tab').removeClass('active');
+                this.$('.view-tab[data-view="active"]').addClass('active');
+
+                // Clear any previous search queries that would hide these items
+                this.searchTerm = '';
+                this.$('.drawer-search-input').val('');
+                this.$('.drawer-search-clear').hide();
+
+                // Force render manually since the collection fetch might take 300ms
+                this.render();
+            }
+
+            // 3. Re-fetch stock data to update the UI paginated view
+            if (window.stockCollection) {
+                window.stockCollection.fetch({ reset: true });
             }
         },
 
@@ -888,6 +1436,7 @@ $(function () {
         placeOffers: function () {
             const items = OfferBuilderState.pinnedItems;
             let count = 0;
+            const processedSkus = [];
 
             Object.values(items).forEach(item => {
                 const price = parseFloat(item.price || 0);
@@ -916,23 +1465,45 @@ $(function () {
                     item.offerStatus = 'Pending';
                     item.submittedQty = qty;
                     item.submittedPrice = price;
-                    // Ensure it's marked as pinned (though it should be if we are here, unless we support submitting unpinned items?)
-                    // If it was unpinned but active, and we edit+submit, it stays unpinned (Active tab) but updates values.
 
+                    // Unpin upon placing offer
+                    item.isPinned = false;
+
+                    processedSkus.push(item.sku.toString());
                     count++;
                 }
             });
 
             if (count > 0) {
+                if (this.viewMode === 'pinned') {
+                    const selectedRows = this.$('.offer-variant-row').filter((i, el) => processedSkus.includes($(el).data('sku').toString()));
+
+                    if (selectedRows.length > 0) {
+                        selectedRows.addClass('adding-to-cart'); // Reusing the visual class
+
+                        setTimeout(() => {
+                            selectedRows.addClass('adding-to-cart-sliding');
+
+                            setTimeout(() => {
+                                OfferBuilderState.save();
+                                this.render();
+                                showToast(`Successfully placed offers for ${count} items!`, 'success');
+                                OfferBuilderState.triggerUpdate();
+                            }, 300);
+                        }, 500);
+                        return; // Exit here to prevent immediate save/render below
+                    }
+                }
+
+                // If not in pinned view, or no rows to animate
                 OfferBuilderState.save();
                 this.render(); // Re-render to show new statuses
-                alert(`Successfully placed offers for ${count} items!`);
-                this.closeDrawer();
+                showToast(`Successfully placed offers for ${count} items!`, 'success');
 
                 // Trigger global update so Stock List icons/badges update
                 OfferBuilderState.triggerUpdate();
             } else {
-                alert('No valid offers to place.');
+                showToast('No valid offers to place.', 'error');
             }
         },
 
@@ -1107,8 +1678,21 @@ $(function () {
                 itemData.submittedQty = itemData.qty;
                 itemData.submittedPrice = itemData.price;
 
-                OfferBuilderState.save();
-                this.render();
+                // --- Animation Sequence ---
+                // 1. Flash green and change icon to checkmark
+                row.addClass('adding-to-cart');
+                btn.html('<span class="material-icons" style="color: #28a745;">check</span>');
+
+                setTimeout(() => {
+                    // 2. Smoothly slide closed
+                    row.addClass('adding-to-cart-sliding');
+
+                    setTimeout(() => {
+                        // 3. Commit state and re-render to remove from DOM completely
+                        OfferBuilderState.save();
+                        this.render();
+                    }, 300); // Wait for sliding animation (matching CSS)
+                }, 500); // Wait for green flash duration
             }
         },
 
@@ -1333,6 +1917,7 @@ $(function () {
                 manufacturer: [],
                 model: [],
                 grade: [],
+                lockStatus: [],
                 includeOos: false,
                 search: ''
             }
@@ -1355,6 +1940,7 @@ $(function () {
                     manufacturer: this.state.filters.manufacturer,
                     model: this.state.filters.model,
                     grade: this.state.filters.grade,
+                    lockStatus: this.state.filters.lockStatus,
                     includeOos: this.state.filters.includeOos,
                     search: this.state.filters.search
                 };
@@ -1380,6 +1966,9 @@ $(function () {
 
         // Helper to update filters
         updateFilter: function (type, value, isChecked) {
+            StockListPresets.currentSlot = null;
+            StockListPresets.renderMenu($('#stock-preset-list-menu'));
+
             if (type === 'oos') {
                 this.state.filters.includeOos = isChecked;
             } else {
@@ -1404,6 +1993,9 @@ $(function () {
         },
 
         updateSearch: function (term) {
+            StockListPresets.currentSlot = null;
+            StockListPresets.renderMenu($('#stock-preset-list-menu'));
+
             this.state.filters.search = term;
             this.state.start = 0;
             this.fetch();
@@ -1459,10 +2051,12 @@ $(function () {
                 addChip('Search', 'search', filters.search);
             }
 
-            ['category', 'warehouse', 'manufacturer', 'model', 'grade'].forEach(type => {
+            ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade'].forEach(type => {
                 if (filters[type] && filters[type].length > 0) {
                     filters[type].forEach(val => {
-                        addChip(type.charAt(0).toUpperCase() + type.slice(1), type, val);
+                        let displayName = type.charAt(0).toUpperCase() + type.slice(1);
+                        if (type === 'lockStatus') displayName = 'Lock Status';
+                        addChip(displayName, type, val);
                     });
                 }
             });
@@ -1470,7 +2064,6 @@ $(function () {
             if (filters.includeOos) {
                 // OOS is a toggle, not a list, but we can show it as a chip
                 // html += ... 
-                // Usually toggles are just toggles. Let's skip for now unless requested.
             }
 
             if (hasFilters) {
@@ -1501,12 +2094,224 @@ $(function () {
                 manufacturer: [],
                 model: [],
                 grade: [],
+                lockStatus: [],
                 includeOos: false,
                 search: ''
             };
             $('#search-input').val(''); // Clear UI input
             this.collection.state.start = 0;
+
+            StockListPresets.currentSlot = null;
+            StockListPresets.renderMenu($('#stock-preset-list-menu'));
+
             this.collection.fetch();
+
+            // Uncheck all sidebar filters
+            $('.filter-checkbox').prop('checked', false);
+            $('#filter-oos').prop('checked', false);
+        }
+    });
+
+    const PresetControlView = Backbone.View.extend({
+        el: '#preset-control-dropdown',
+
+        events: {
+            'click .preset-save-slot': 'saveSlot',
+            'click .preset-load-slot': 'loadSlot',
+            'click .preset-clear-all': 'clearFilters'
+        },
+
+        initialize: function () {
+            this.listenTo(this.collection, 'sync', this.render);
+        },
+
+        hasActiveFilters: function () {
+            const filters = this.collection.state.filters;
+            if (filters.search) return true;
+            for (const type of ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade']) {
+                if (filters[type] && filters[type].length > 0) return true;
+            }
+            if (filters.includeOos) return true;
+            return false;
+        },
+
+        getPresetSummary: function (slot) {
+            const config = StockListPresets.presets[slot];
+            if (!config) return `<div style="font-size: 11px; color: #bbb; margin-top: 2px; font-style: italic;">Empty</div>`;
+
+            let parts = [];
+            if (config.search) parts.push(`Search: "${config.search}"`);
+            ['manufacturer', 'model', 'grade', 'warehouse', 'lockStatus'].forEach(type => {
+                if (config[type] && config[type].length > 0) {
+                    parts.push(`${type}: ${config[type].length}`);
+                }
+            });
+            let detailsHtml = '';
+            if (parts.length > 0) {
+                detailsHtml = `<div style="font-size: 11px; color: #888; margin-top: 2px;">${parts.slice(0, 3).join(', ')}${parts.length > 3 ? ', ...' : ''}</div>`;
+            } else {
+                detailsHtml = `<div style="font-size: 11px; color: #888; margin-top: 2px;">No filters</div>`;
+            }
+            return detailsHtml;
+        },
+
+        render: function () {
+            const btnIcon = this.$('.preset-btn-icon');
+            const menu = this.$('#preset-control-menu');
+            menu.empty();
+
+            const isActive = this.hasActiveFilters();
+            const currentSlot = StockListPresets.currentSlot;
+
+            // Determine State
+            if (!isActive && !currentSlot) {
+                // State A: Empty. No search criteria, no preset selected
+                btnIcon.text('tune'); // or bookmarks
+
+                let hasSavedPresets = false;
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    if (StockListPresets.presets[slot]) hasSavedPresets = true;
+                });
+
+                if (!hasSavedPresets) {
+                    menu.append(`<li style="padding: 15px; color: #777; font-size: 13px; text-align: center; width: 250px; white-space: normal;">No active filters to save, and no saved presets available.</li>`);
+                } else {
+                    menu.append(`<li class="dropdown-header">Load Existing</li>`);
+                    ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                        if (StockListPresets.presets[slot]) {
+                            let label = 'Preset ' + slot;
+                            menu.append(`
+                                <li><a href="#" class="preset-load-slot" data-slot="${slot}" style="padding: 8px 15px;">
+                                    <div style="font-weight: 500;">${label}</div>
+                                    ${this.getPresetSummary(slot)}
+                                </a></li>
+                            `);
+                        }
+                    });
+                }
+            } else if (isActive && !currentSlot) {
+                // State B: Unsaved Filters
+                btnIcon.text('save');
+
+                menu.append(`<li class="dropdown-header">Save Current Filters To...</li>`);
+                const slotsRow = $('<li style="padding: 5px 15px; display: flex; gap: 5px;"></li>');
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    const btnClass = StockListPresets.presets[slot] ? 'btn-warning' : 'btn-default'; // Warning if overwriting
+                    slotsRow.append(`<button type="button" class="btn ${btnClass} btn-xs preset-save-slot" data-slot="${slot}" title="Save to ${slot}">${slot}</button>`);
+                });
+                menu.append(slotsRow);
+
+                menu.append(`<li role="separator" class="divider"></li>`);
+                menu.append(`<li class="dropdown-header">Load Existing...</li>`);
+
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    if (StockListPresets.presets[slot]) {
+                        let label = 'Preset ' + slot;
+                        menu.append(`
+                            <li><a href="#" class="preset-load-slot" data-slot="${slot}" style="padding: 8px 15px;">
+                                <div style="font-weight: 500;">${label}</div>
+                                ${this.getPresetSummary(slot)}
+                            </a></li>
+                        `);
+                    }
+                });
+
+            } else if (currentSlot) {
+                // State C: Preset Active
+                const displaySlot = currentSlot;
+                btnIcon.text(displaySlot);
+                btnIcon.css({ 'font-family': 'Inter, sans-serif', 'font-weight': 'bold', 'font-size': '16px' });
+
+                menu.append(`<li class="dropdown-header">Current: Preset ${currentSlot}</li>`);
+
+                menu.append(`<li><a href="#" class="preset-clear-all text-danger" style="padding: 8px 15px; font-weight: 500;"><span class="material-icons" style="font-size: 14px; vertical-align: text-bottom; margin-right: 5px;">clear</span> Clear Filters</a></li>`);
+
+                menu.append(`<li role="separator" class="divider"></li>`);
+                menu.append(`<li class="dropdown-header">Load Another...</li>`);
+
+                ['A', 'B', 'C', 'D', 'E'].forEach(slot => {
+                    if (StockListPresets.presets[slot] && slot !== currentSlot) {
+                        let label = 'Preset ' + slot;
+                        menu.append(`
+                            <li><a href="#" class="preset-load-slot" data-slot="${slot}" style="padding: 8px 15px;">
+                                <div style="font-weight: 500;">${label}</div>
+                                ${this.getPresetSummary(slot)}
+                            </a></li>
+                        `);
+                    }
+                });
+            }
+
+            // Reset font styling if not State C
+            if (!currentSlot) {
+                btnIcon.css({ 'font-family': "'Material Icons'", 'font-weight': 'normal' });
+            }
+        },
+
+        saveSlot: function (e) {
+            e.preventDefault();
+            e.stopPropagation(); // Keep dropdown open? Or let it close. Let's let it close natively or manually close it
+            const slot = $(e.currentTarget).data('slot');
+
+            const config = JSON.parse(JSON.stringify(this.collection.state.filters));
+            StockListPresets.presets[slot] = config;
+            StockListPresets.currentSlot = slot;
+            StockListPresets.save();
+
+            this.render(); // Re-render to show State C
+            this.$el.removeClass('open'); // close bootstrap dropdown manually
+        },
+
+        loadSlot: function (e) {
+            e.preventDefault();
+            const slot = $(e.currentTarget).data('slot');
+            const config = StockListPresets.presets[slot];
+
+            if (config) {
+                this.collection.state.filters = JSON.parse(JSON.stringify(config));
+                this.collection.state.start = 0;
+                StockListPresets.currentSlot = slot;
+
+                // Sync UI search box
+                $('#search-input').val(config.search || '');
+                if (config.search) {
+                    $('#search-clear').show();
+                } else {
+                    $('#search-clear').hide();
+                }
+
+                // Sync UI Sidebar Checkboxes
+                $('.filter-checkbox').prop('checked', false);
+                ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade'].forEach(type => {
+                    if (config[type] && config[type].length > 0) {
+                        config[type].forEach(val => {
+                            $(`.filter-checkbox[data-type="${type}"][value="${val}"]`).prop('checked', true);
+                        });
+                    }
+                });
+                $('#filter-oos').prop('checked', !!config.includeOos);
+
+                this.collection.fetch(); // Trigger sync > renders PresetControlView and ActiveFiltersView
+            }
+            this.$el.removeClass('open');
+        },
+
+        clearFilters: function (e) {
+            e.preventDefault();
+            // Reusing ActiveFiltersView logic
+            this.collection.state.filters = {
+                category: [], warehouse: [], manufacturer: [], model: [],
+                grade: [], lockStatus: [], includeOos: false, search: ''
+            };
+            $('#search-input').val('');
+            this.collection.state.start = 0;
+            StockListPresets.currentSlot = null;
+
+            $('.filter-checkbox').prop('checked', false);
+            $('#filter-oos').prop('checked', false);
+
+            this.collection.fetch();
+            this.$el.removeClass('open');
         }
     });
 
@@ -1592,6 +2397,12 @@ $(function () {
                 this.$el.append(this.template(data));
             });
 
+            // Apply global expansion state if enabled
+            if (window.isExpandedAll) {
+                this.$('.card-body').show();
+                this.$('.chevron').addClass('expanded');
+            }
+
             // Re-bind events for expanded content if needed
             this.updatePinIcons();
             return this;
@@ -1625,6 +2436,7 @@ $(function () {
                 capacity: [],
                 color: [],
                 network: [],
+                lockStatus: [],
                 includeOos: false,
                 search: ''
             };
@@ -1689,6 +2501,7 @@ $(function () {
                     variant.grade = model.get('grade');
                     variant.warehouse = model.get('warehouse');
                     variant.capacity = model.get('capacity'); // Ensure capacity is passed too
+                    variant.lockStatus = found.lockStatus; // Ensure lockStatus is passed too
                 }
             });
 
@@ -1736,24 +2549,6 @@ $(function () {
                     btn.css('color', '#8BA1A7');
                 }
             });
-        },
-
-        toggleAllDetails: function (e) {
-            const btn = $(e.currentTarget);
-            // Check text content instead of html to ignore icons
-            const isCollapsing = btn.text().includes('Collapse');
-
-            if (isCollapsing) {
-                // Collapse All
-                this.$('.card-body').slideUp(200);
-                this.$('.chevron').removeClass('expanded');
-                btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_more</span> Expand All');
-            } else {
-                // Expand All
-                this.$('.card-body').slideDown(200);
-                this.$('.chevron').addClass('expanded');
-                btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All');
-            }
         },
 
         toggleDetails: function (e) {
@@ -1882,7 +2677,6 @@ $(function () {
             this.lastInteractionTime = 0; // Debounce tracker for iOS synthetic clicks
 
             this.listenTo(this.collection, 'sync', this.renderFilters);
-            this.listenTo(this.collection, 'sync', this.updateBadge); // Update badge on sync
 
             // Bind external controls that live outside .drawer-layout-container
             $('#filter-toggle-btn').on('click', this.toggleDrawer.bind(this));
@@ -1949,29 +2743,6 @@ $(function () {
                 this.closeDrawer();
             }
         },
-
-        updateBadge: function () {
-            const filters = this.collection.state.filters;
-            let count = 0;
-
-            // Count array filters
-            ['category', 'warehouse', 'grade', 'manufacturer', 'model', 'capacity', 'color', 'network'].forEach(type => {
-                if (filters[type]) count += filters[type].length;
-            });
-
-            // Count boolean filters
-            if (filters.includeOos) count++;
-
-            const badge = $('#filter-toggle-btn .filter-count');
-            badge.text(count);
-
-            if (count > 0) {
-                badge.show();
-            } else {
-                badge.hide();
-            }
-        },
-
 
         removeFilterChip: function (e) {
             const type = $(e.currentTarget).data('type');
@@ -2148,6 +2919,7 @@ $(function () {
 
             // Order of rendering (Flattened & Re-ordered per user)
             renderGroup('Warehouse', 'warehouse', facets.warehouse);
+            renderGroup('Lock Status', 'lockStatus', facets.lockStatus);
             renderGroup('Category', 'category', facets.category);
             renderGroup('Manufacturer', 'manufacturer', facets.manufacturer);
             renderGroup('Model', 'model', facets.model);
@@ -2393,9 +3165,34 @@ $(function () {
             const qty = parseInt(this.$('#modal-qty').val());
 
             if (this.mode === 'buy') {
-                const price = this.rawData.price;
-                const modelName = this.rawData.model || this.rawData.sku;
-                alert(`Mock Action: Purchased ${qty} unit(s) of ${modelName} at $${price}. Added to cart.`);
+                const price = this.rawData.listPrice !== undefined ? this.rawData.listPrice : this.rawData.price;
+                const modelData = this.rawData;
+
+                const cartItem = {
+                    sku: modelData.sku || `SKU-TEMP-${Math.floor(Math.random() * 10000)}`,
+                    group_id: modelData.group_id || modelData.id,
+                    model: modelData.model,
+                    manufacturer: modelData.manufacturer,
+                    description: modelData.description || ((modelData.color || '') + ' ' + (modelData.network || '')).trim() || modelData.grade,
+                    grade: modelData.grade,
+                    warehouse: modelData.warehouse,
+                    lockStatus: modelData.lockStatus,
+                    qty: qty,
+                    price: price,
+                    submittedQty: qty,
+                    submittedPrice: price,
+                    counterQty: 0,
+                    counterPrice: 0,
+                    availableQty: modelData.quantity,
+                    listPrice: modelData.price,
+                    offerStatus: 'In Cart',
+                    isPinned: false
+                };
+
+                OfferBuilderState.pinnedItems[cartItem.sku] = cartItem;
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+
             } else if (this.mode === 'offer') {
                 // Offer Mode
                 const offerPrice = parseFloat(this.$('#modal-offer-price').val());
@@ -2410,6 +3207,7 @@ $(function () {
                     description: modelData.description || ((modelData.color || '') + ' ' + (modelData.network || '')).trim() || modelData.grade,
                     grade: modelData.grade,
                     warehouse: modelData.warehouse,
+                    lockStatus: modelData.lockStatus,
                     qty: qty,
                     price: offerPrice,
                     submittedQty: qty,
@@ -2495,12 +3293,12 @@ $(function () {
 
     new PaginationView({ collection: stockCollection });
     new SidebarView({ collection: stockCollection });
+    new PresetControlView({ collection: stockCollection });
     new ActiveFiltersView({ collection: stockCollection });
     new ExperimentView();
     new OfferBarView();
     new OfferDrawerView();
 
-    // Global Controls View (since buttons are outside stock-list-container)
     const GlobalControlsView = Backbone.View.extend({
         el: '.results-controls',
         events: {
@@ -2511,10 +3309,12 @@ $(function () {
             const isCollapsing = btn.text().includes('Collapse');
 
             if (isCollapsing) {
+                window.isExpandedAll = false;
                 $('.card-body').slideUp(200);
                 $('.chevron').removeClass('expanded');
                 btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_more</span> Expand All');
             } else {
+                window.isExpandedAll = true;
                 $('.card-body').slideDown(200);
                 $('.chevron').addClass('expanded');
                 btn.html('<span class="material-icons" style="font-size: 16px; vertical-align: bottom;">unfold_less</span> Collapse All');
@@ -2524,6 +3324,11 @@ $(function () {
     new GlobalControlsView();
 
     OfferBuilderState.init();
+    StockListPresets.init();
+    new PresetControlView({ collection: stockCollection }); // Moved here
+
+    // Remove old document-level preset option clicks
+    // The new PresetControlView handles these natively now.
 
     // Initial Fetch
     stockCollection.fetch();

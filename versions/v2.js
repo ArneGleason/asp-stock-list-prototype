@@ -369,6 +369,7 @@ $(function () {
             'click .action-cancel-offer': 'cancelOffer',
             'click .add-to-cart-action': 'handleMenuAddToCart',
             'click .action-add-to-cart-menu': 'handleMenuAddToCart',
+            'click .btn-add-similar': 'addSimilarItems',
             'click .view-tab': 'switchView',
             'keyup .drawer-search-input': 'handleDrawerSearch',
             'click .drawer-search-clear': 'clearDrawerSearch',
@@ -964,6 +965,21 @@ $(function () {
                     if (matches) capacity = matches[0];
                 }
 
+                let unpinnedCount = 0;
+                if (window.stockCollection) {
+                    const [mfr, modelName, grade, warehouse] = groupKey.split('|');
+                    window.stockCollection.each(groupModel => {
+                        const gm = groupModel.toJSON();
+                        if ((gm.model === modelName) && (gm.grade === grade) && (gm.warehouse === warehouse)) {
+                            (gm.variants || []).forEach(v => {
+                                if (!OfferBuilderState.pinnedItems[v.sku]) {
+                                    unpinnedCount++;
+                                }
+                            });
+                        }
+                    });
+                }
+
                 const $groupEl = $(this.groupTemplate({
                     groupKey: groupKey, // Pass composite key
                     groupId: firstItem.group_id || 'misc',
@@ -971,7 +987,8 @@ $(function () {
                     model: firstItem.model || 'Other', // Display Name
                     capacity: capacity || '',
                     grades: Array.from(uniqueGrades),
-                    warehouses: Array.from(uniqueWarehouses)
+                    warehouses: Array.from(uniqueWarehouses),
+                    unpinnedCount: unpinnedCount
                 }));
 
                 const $variantsContainer = $groupEl.find('.offer-group-variants');
@@ -1179,9 +1196,51 @@ $(function () {
                 console.error('StockCollection not found');
                 alert('Cannot access stock data to add items.');
             }
-
         },
 
+        addSimilarItems: function (e) {
+            e.stopPropagation();
+            const groupKey = $(e.currentTarget).closest('.offer-group').data('group-key');
+            console.log('Adding similar items for group:', groupKey);
+
+            if (window.stockCollection) {
+                const [mfr, modelName, grade, warehouse] = groupKey.split('|');
+                let addedCount = 0;
+
+                window.stockCollection.each(groupModel => {
+                    const gm = groupModel.toJSON();
+                    if ((gm.model === modelName) && (gm.grade === grade) && (gm.warehouse === warehouse)) {
+                        (gm.variants || []).forEach(v => {
+                            if (!OfferBuilderState.pinnedItems[v.sku]) {
+                                const attrs = {
+                                    sku: v.sku,
+                                    manufacturer: gm.manufacturer,
+                                    model: gm.model,
+                                    grade: gm.grade,
+                                    warehouse: gm.warehouse,
+                                    description: ((v.color || '') + ' ' + (v.network || '')).trim(),
+                                    qty: v.offerQty || 0,
+                                    price: v.offerPrice || 0,
+                                    availableQty: v.quantity,
+                                    listPrice: v.price,
+                                    offerStatus: v.offerStatus,
+                                    isPinned: true
+                                };
+                                OfferBuilderState.pinnedItems[attrs.sku] = attrs;
+                                addedCount++;
+                            }
+                        });
+                    }
+                });
+                
+                if (addedCount > 0) {
+                    OfferBuilderState.save();
+                    OfferBuilderState.triggerUpdate();
+                }
+            }
+        },
+
+        // Update bulk actions footer state based on selectedSkus
         resetDemoData: function (e) {
             if (e) e.preventDefault();
             this.$('#drawer-overflow-menu').removeClass('open');
