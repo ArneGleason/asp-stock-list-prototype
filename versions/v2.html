@@ -15,9 +15,9 @@
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="../assets/styles.css?v=2.7">
-    <link rel="stylesheet" href="../assets/offer-bar.css?v=2.7">
-    <link rel="stylesheet" href="../assets/offer-drawer.css?v=2.7">
+    <link rel="stylesheet" href="../assets/styles.css?v=2.14">
+    <link rel="stylesheet" href="../assets/offer-bar.css?v=2.14">
+    <link rel="stylesheet" href="../assets/offer-drawer.css?v=2.14">
 </head>
 
 <body>
@@ -226,24 +226,49 @@
     <div class="modal fade" id="bulk-quick-offer-modal" tabindex="-1" role="dialog" style="z-index: 1055;">
         <div class="modal-dialog modal-sm" role="document" style="margin-top: 20vh;">
             <div class="modal-content">
-                <div class="modal-header bg-primary" style="color: white; border-radius: 4px 4px 0 0;">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: white; opacity: 0.8;"><span
-                            aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title" style="font-weight: 500;">Quick Offer</h4>
+                <div class="modal-header" style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; border-radius: 4px 4px 0 0;">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: #999; opacity: 0.8; text-shadow: none;">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title" style="font-weight: 500; color: #333;">Quick Offer <span class="badge" style="background-color: #e2e3e5; color: #333;" id="bqo-item-count">0</span></h4>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted" style="font-size: 13px;">Enter a price to immediately offer for <strong
-                            class="bulk-quick-offer-count">0</strong> selected items.</p>
+                    
+                    <!-- Stats Summary Box -->
+                    <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 12px; color: #6c757d; font-weight: 600; text-transform: uppercase;">Total Available</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #343a40;" id="bqo-total-avail">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 12px; color: #6c757d; font-weight: 600; text-transform: uppercase;">List Prices</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #343a40;" id="bqo-price-range">$0.00</span>
+                        </div>
+                    </div>
 
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Offer Price ($)</label>
-                        <input type="number" class="form-control" id="bulk-quick-offer-value" placeholder="e.g. 150.00"
-                            step="0.01" min="0">
+                    <div class="form-group">
+                        <label style="font-size: 13px; font-weight: 600; color: #333;">Quantity Allocation</label>
+                        <select class="form-control input-sm" id="bulk-quick-offer-qty-type" style="margin-bottom: 8px;">
+                            <option value="all_available">All Available Quantity</option>
+                            <option value="balance">Balance Total Quantity</option>
+                            <option value="max_per_item">Max Quantity Per Item</option>
+                        </select>
+                        <input type="number" class="form-control" id="bulk-quick-offer-qty-value" placeholder="e.g. 100" min="1">
+                        <p class="help-block" id="bqo-qty-help" style="font-size: 11px; margin-bottom: 0;">Distribute this quantity across selected items.</p>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+                        <label style="font-size: 13px; font-weight: 600; color: #333;">Offer Price</label>
+                        <div class="input-group">
+                            <span class="input-group-addon">$</span>
+                            <input type="number" class="form-control" id="bulk-quick-offer-price-value" placeholder="e.g. 150.00" step="0.01" min="0">
+                        </div>
+                        <p class="help-block" style="font-size: 11px; margin-bottom: 0;">Offers will be capped at each item's list price.</p>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="padding-top: 10px;">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-bulk-quick-offer-confirm">Create Offers</button>
+                    <button type="button" class="btn btn-primary" id="btn-bulk-quick-offer-confirm">Apply Offers</button>
                 </div>
             </div>
         </div>
@@ -978,9 +1003,9 @@
     <!-- SheetJS for XLSX -->
     <script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <!-- App Logic -->
-    <script src="../assets/mock-data.js?v=2.7"></script>
-    <script src="v2.js?v=2.7"></script>
-    <script src="../assets/nav.js?v=2.7"></script>
+    <script src="../assets/mock-data.js?v=2.14"></script>
+    <script src="v2.js?v=2.14"></script>
+    <script src="../assets/nav.js?v=2.14"></script>
 
 </body>
 

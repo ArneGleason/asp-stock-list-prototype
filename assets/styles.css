@@ -1180,3 +1180,42 @@ input:checked~.filter-badge {
     background-color: #1976d2 !important;
     border-color: #1976d2 !important;
 }
+
+/* Long Press Batch Mode Indicator */
+.long-press-indicator {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10000;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    margin-left: -20px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.long-press-indicator.visible {
+    opacity: 1;
+}
+
+.long-press-indicator svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg); /* Start from top */
+}
+
+.long-press-indicator circle {
+    fill: rgba(0,0,0,0.1);
+    stroke: #0070B9;
+    stroke-width: 4;
+    /* Circumference = 2 * pi * 20 = 125.6 */
+    stroke-dasharray: 126;
+    stroke-dashoffset: 126;
+    stroke-linecap: round;
+}
+
+.long-press-indicator.active circle {
+    stroke-dashoffset: 0;
+    /* CSS animation duration matches JS timeout */
+    transition: stroke-dashoffset 600ms linear;
+}

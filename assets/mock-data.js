@@ -207,6 +207,15 @@
             );
         },
 
+        getVariant: function (sku) {
+            for (let i = 0; i < ALL_DATA.length; i++) {
+                const group = ALL_DATA[i];
+                const variant = group.variants.find(v => v.sku === sku);
+                if (variant) return variant;
+            }
+            return null;
+        },
+
         getGroups: function (params) {
             console.log("Mock API Request:", params);
 

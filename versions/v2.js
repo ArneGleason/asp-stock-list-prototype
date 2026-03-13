@@ -384,7 +384,6 @@ $(function () {
             'click .btn-bulk-quick-offer': 'bulkQuickOfferPrompt',
             'click .btn-bulk-cart': 'bulkAddToCart',
             'click .btn-bulk-update': 'openBulkUpdateModal',
-            'click #btn-bulk-quick-offer-confirm': 'executeQuickOffer',
             'click .btn-batch-select-all': 'batchSelectAll',
             'click .btn-batch-reverse': 'batchReverse',
             'click .btn-batch-clear': 'batchClear',
@@ -459,6 +458,10 @@ $(function () {
                 this.pendingBulkAction = { type: 'update_price', payload: { action: type, value: v } };
                 this.promptBulkConfirm('Update Prices', `You are about to <strong>${actionStr}</strong> for <strong>${this.selectedSkus.size}</strong> active offers.`);
             });
+
+            // Quick Offer Modal bindings (Modal is outside view)
+            $('#btn-bulk-quick-offer-confirm').on('click', this.executeQuickOffer.bind(this));
+            $('#bulk-quick-offer-qty-type').on('change', this.handleQuickOfferQtyTypeChange.bind(this));
         },
 
         scrollToTop: function () {
@@ -780,29 +783,176 @@ $(function () {
         },
 
         bulkQuickOfferPrompt: function () {
-            $('#bulk-quick-offer-modal').modal('show');
-            $('.bulk-quick-offer-count').text(this.selectedSkus.size);
+            let totalAvailable = 0;
+            let minListPrice = Infinity;
+            let maxListPrice = -Infinity;
+
+            this.selectedSkus.forEach(sku => {
+                const item = OfferBuilderState.pinnedItems[sku];
+                if (item) {
+                    let avail = parseInt(item.availableQty, 10);
+                    let lp = parseFloat(item.listPrice);
+
+                    if (window.MockApi && window.MockApi.getVariant) {
+                        const liveVariant = window.MockApi.getVariant(sku);
+                        if (liveVariant) {
+                            avail = liveVariant.quantity;
+                            lp = parseFloat(liveVariant.price);
+                        }
+                    }
+
+                    avail = avail || 0;
+                    totalAvailable += avail;
+
+                    if (!isNaN(lp)) {
+                        if (lp < minListPrice) minListPrice = lp;
+                        if (lp > maxListPrice) maxListPrice = lp;
+                    }
+                }
+            });
+
+            // Format List Price string
+            let priceRangeStr = '$0.00';
+            if (minListPrice !== Infinity) {
+                if (minListPrice === maxListPrice) {
+                    priceRangeStr = `$${minListPrice.toFixed(2)}`;
+                } else {
+                    priceRangeStr = `$${minListPrice.toFixed(2)} - $${maxListPrice.toFixed(2)}`;
+                }
+            }
+
+            $('#bqo-item-count').text(this.selectedSkus.size);
+            $('#bqo-total-avail').text(totalAvailable);
+            $('#bqo-price-range').text(priceRangeStr);
+
             $('#bulk-quick-offer-value').val('');
+            $('#bulk-quick-offer-qty-type').val('all_available').trigger('change');
+
+            $('#bulk-quick-offer-modal').modal('show');
+        },
+
+        handleQuickOfferQtyTypeChange: function (e) {
+            const val = $(e.currentTarget).val();
+            const input = $('#bulk-quick-offer-qty-value');
+            const helpText = $('#bqo-qty-help');
+
+            if (val === 'all_available') {
+                input.val($('#bqo-total-avail').text());
+                input.prop('readonly', true);
+                helpText.text('Total available');
+            } else if (val === 'balance') {
+                if (input.prop('readonly')) {
+                    input.val('');
+                    input.prop('readonly', false);
+                }
+                helpText.text('Distribute this quantity across selected items.');
+            } else if (val === 'max_per_item') {
+                if (input.prop('readonly')) {
+                    input.val('');
+                    input.prop('readonly', false);
+                }
+                helpText.text('Up to this quantity per item.');
+            }
         },
 
         executeQuickOffer: function() {
-            const newPrice = parseFloat($('#bulk-quick-offer-value').val());
-            if (isNaN(newPrice) || newPrice <= 0) {
-                alert('Please enter a valid price greater than 0');
+            const newPriceInput = parseFloat($('#bulk-quick-offer-price-value').val());
+            if (isNaN(newPriceInput) || newPriceInput <= 0) {
+                alert('Please enter a valid offer price greater than 0.');
                 return;
             }
 
+            const qtyType = $('#bulk-quick-offer-qty-type').val(); // 'balance' or 'max_per_item' or 'all_available'
+            let qtyInput = 0;
+            
+            if (qtyType !== 'all_available') {
+                qtyInput = parseInt($('#bulk-quick-offer-qty-value').val(), 10);
+                if (isNaN(qtyInput) || qtyInput <= 0) {
+                    alert('Please enter a valid quantity greater than 0.');
+                    return;
+                }
+            }
+
             const skus = Array.from(this.selectedSkus);
+            
+            // Build working data objects to handle distribution maths
+            let itemsToProcess = [];
             skus.forEach(sku => {
                 let item = OfferBuilderState.pinnedItems[sku];
                 if (item) {
-                    item.price = newPrice.toFixed(2);
-                    item.qty = item.qty || 1;
-                    if (!item.submittedQty) {
-                        item.submittedQty = item.qty;
-                        item.submittedPrice = item.price;
+                    let avail = parseInt(item.availableQty, 10);
+                    let lp = parseFloat(item.listPrice);
+
+                    if (window.MockApi && window.MockApi.getVariant) {
+                        const liveVariant = window.MockApi.getVariant(sku);
+                        if (liveVariant) {
+                            avail = liveVariant.quantity;
+                            lp = parseFloat(liveVariant.price);
+                        }
                     }
-                    item.offerStatus = 'Pending';
+
+                    avail = avail || 0;
+
+                    itemsToProcess.push({
+                        sku: sku,
+                        item: item,
+                        available: avail,
+                        listPrice: lp,
+                        assigned: 0
+                    });
+                }
+            });
+
+            // Filter out items with 0 availability
+            itemsToProcess = itemsToProcess.filter(x => x.available > 0);
+
+            if (qtyType === 'balance') {
+                let unassignedTotal = qtyInput;
+                
+                // Sort items by available quantity, ascending
+                itemsToProcess.sort((a, b) => a.available - b.available);
+                
+                // Distribute evenly, starting with lowest-availability item
+                for (let i = 0; i < itemsToProcess.length; i++) {
+                    if (unassignedTotal <= 0) break;
+                    
+                    let remainingItems = itemsToProcess.length - i;
+                    
+                    // The target share for this item is the remaining total divided by remaining items,
+                    // round up so we don't infinitely fragment remainders
+                    let targetShare = Math.ceil(unassignedTotal / remainingItems);
+                    
+                    // Allocate either that share or the item’s full available quantity, whichever is smaller
+                    let obj = itemsToProcess[i];
+                    let amountToGive = Math.min(targetShare, obj.available);
+                    
+                    obj.assigned = amountToGive;
+                    unassignedTotal -= amountToGive;
+                }
+            }
+
+            // Apply processed assignments
+            itemsToProcess.forEach(processedObj => {
+                let assignQty = processedObj.assigned;
+                
+                if (qtyType === 'all_available') {
+                    assignQty = processedObj.available;
+                } else if (qtyType === 'max_per_item') {
+                    assignQty = Math.min(processedObj.available, qtyInput);
+                }
+
+                if (assignQty > 0) {
+                    let item = processedObj.item;
+
+                    // Cap the offer price to the item's list price
+                    const listPrice = !isNaN(processedObj.listPrice) ? processedObj.listPrice : Infinity;
+                    const finalPrice = Math.min(newPriceInput, listPrice);
+
+                    item.price = finalPrice;
+                    item.qty = assignQty;
+                    
+                    // Treat as populated inputs in draft mode
+                    item.offerStatus = 'Draft';
                 }
             });
 
@@ -810,7 +960,7 @@ $(function () {
             Backbone.trigger('offerBuilder:update');
             $('#bulk-quick-offer-modal').modal('hide');
             this.disableEditMode();
-            showToast('Created quick offers for ' + skus.length + ' items.', 'success');
+            showToast('Populated inputs for ' + skus.length + ' selected items.', 'success');
         },
 
         bulkCancel: function () {
