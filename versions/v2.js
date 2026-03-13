@@ -358,6 +358,7 @@ $(function () {
             'focus .control-input': 'autoSelect',
             'keydown .control-input': 'handleInputKeydown',
             'click .btn-generate-xlsx': 'generateXLSX',
+            'click .drawer-clear-pinned': 'clearPinnedDrawer',
             'click .btn-reset-demo-data': 'resetDemoData',
             'click #drawer-menu-btn': 'toggleMenu',
             'click .btn-place-offer': 'placeOffers',
@@ -1480,6 +1481,31 @@ $(function () {
         toggleMenu: function (e) {
             e.stopPropagation();
             this.$('#drawer-overflow-menu').toggleClass('open');
+        },
+
+        clearPinnedDrawer: function (e) {
+            e.preventDefault();
+            this.$('#drawer-overflow-menu').removeClass('open');
+
+            const items = OfferBuilderState.pinnedItems;
+            let clearedCount = 0;
+            
+            Object.keys(items).forEach(sku => {
+                const item = items[sku];
+                if (item.isPinned) {
+                    item.isPinned = false;
+                    clearedCount++;
+                    if (!item.offerStatus || item.offerStatus === 'Draft') {
+                        delete items[sku];
+                    }
+                }
+            });
+
+            if (clearedCount > 0) {
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+                showToast(`Cleared ${clearedCount} pinned items.`, 'success');
+            }
         },
 
         removeGroup: function (e) {
