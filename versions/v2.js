@@ -462,6 +462,7 @@ $(function () {
             // Quick Offer Modal bindings (Modal is outside view)
             $('#btn-bulk-quick-offer-confirm').on('click', this.executeQuickOffer.bind(this));
             $('#bulk-quick-offer-qty-type').on('change', this.handleQuickOfferQtyTypeChange.bind(this));
+            $('#bulk-quick-offer-price-type').on('change', this.handleQuickOfferPriceTypeChange.bind(this));
         },
 
         scrollToTop: function () {
@@ -793,14 +794,6 @@ $(function () {
                     let avail = parseInt(item.availableQty, 10);
                     let lp = parseFloat(item.listPrice);
 
-                    if (window.MockApi && window.MockApi.getVariant) {
-                        const liveVariant = window.MockApi.getVariant(sku);
-                        if (liveVariant) {
-                            avail = liveVariant.quantity;
-                            lp = parseFloat(liveVariant.price);
-                        }
-                    }
-
                     avail = avail || 0;
                     totalAvailable += avail;
 
@@ -827,6 +820,9 @@ $(function () {
 
             $('#bulk-quick-offer-value').val('');
             $('#bulk-quick-offer-qty-type').val('all_available').trigger('change');
+            
+            $('#bulk-quick-offer-price-value').val('');
+            $('#bulk-quick-offer-price-type').val('set_price').trigger('change');
 
             $('#bulk-quick-offer-modal').modal('show');
         },
@@ -855,10 +851,33 @@ $(function () {
             }
         },
 
+        handleQuickOfferPriceTypeChange: function (e) {
+            const val = $(e.currentTarget).val();
+            const prefix = $('#bqo-price-prefix');
+            const suffix = $('#bqo-price-suffix');
+            const helpText = $('#bqo-price-help');
+
+            if (val === 'set_price') {
+                prefix.show();
+                suffix.hide();
+                helpText.text('Apply a fixed price to all selected items.');
+            } else if (val === 'dollars_below') {
+                prefix.show();
+                suffix.hide();
+                helpText.text('Subtract this dollar amount from each item\'s list price.');
+            } else if (val === 'percent_below') {
+                prefix.hide();
+                suffix.show();
+                helpText.text('Subtract this percentage from each item\'s list price.');
+            }
+        },
+
         executeQuickOffer: function() {
-            const newPriceInput = parseFloat($('#bulk-quick-offer-price-value').val());
-            if (isNaN(newPriceInput) || newPriceInput <= 0) {
-                alert('Please enter a valid offer price greater than 0.');
+            const priceType = $('#bulk-quick-offer-price-type').val(); // 'set_price', 'dollars_below', 'percent_below'
+            const priceInputValue = parseFloat($('#bulk-quick-offer-price-value').val());
+            
+            if (isNaN(priceInputValue) || priceInputValue < 0) {
+                alert('Please enter a valid offer value greater than or equal to 0.');
                 return;
             }
 
@@ -882,15 +901,6 @@ $(function () {
                 if (item) {
                     let avail = parseInt(item.availableQty, 10);
                     let lp = parseFloat(item.listPrice);
-
-                    if (window.MockApi && window.MockApi.getVariant) {
-                        const liveVariant = window.MockApi.getVariant(sku);
-                        if (liveVariant) {
-                            avail = liveVariant.quantity;
-                            lp = parseFloat(liveVariant.price);
-                        }
-                    }
-
                     avail = avail || 0;
 
                     itemsToProcess.push({
@@ -944,9 +954,22 @@ $(function () {
                 if (assignQty > 0) {
                     let item = processedObj.item;
 
-                    // Cap the offer price to the item's list price
-                    const listPrice = !isNaN(processedObj.listPrice) ? processedObj.listPrice : Infinity;
-                    const finalPrice = Math.min(newPriceInput, listPrice);
+                    const listPrice = !isNaN(processedObj.listPrice) ? processedObj.listPrice : 0;
+                    let calculatedPrice = 0;
+
+                    if (priceType === 'set_price') {
+                        calculatedPrice = priceInputValue;
+                    } else if (priceType === 'dollars_below') {
+                        calculatedPrice = Math.max(0, listPrice - priceInputValue);
+                    } else if (priceType === 'percent_below') {
+                        // e.g. 10% below = listPrice * (1 - 0.10)
+                        const discountFactor = priceInputValue / 100;
+                        calculatedPrice = Math.max(0, listPrice * (1 - discountFactor));
+                        calculatedPrice = Math.floor(calculatedPrice); // Round down to the dollar
+                    }
+
+                    // Cap the final calculated price securely to the item's live list price
+                    const finalPrice = Math.min(calculatedPrice, (listPrice > 0 ? listPrice : Infinity));
 
                     item.price = finalPrice;
                     item.qty = assignQty;
