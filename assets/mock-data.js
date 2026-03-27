@@ -60,7 +60,6 @@
             const lockStatus = cat === 'Phones' || cat === 'Tablets' ? (Math.random() > 0.5 ? 'LOCKED' : 'UNLOCKED') : null;
 
             const qty = Math.floor(Math.random() * 50);
-            let basePrice = 200 + Math.floor(Math.random() * 800);
 
             // Determine Manufacturer
             let mfr = 'Other';
@@ -87,12 +86,17 @@
                     quantity: 0,
                     minPrice: Infinity,
                     maxPrice: -Infinity,
-                    variants: []
+                    variants: [],
+                    basePrice: 200 + Math.floor(Math.random() * 800)
                 };
             }
 
             const sku = `SKU-${10000 + i}`;
-            const price = basePrice + (Math.floor(Math.random() * 50));
+            
+            // Generate variant price within +/- 2.5% of the group's basePrice (5% total range)
+            const variancePercent = (Math.random() * 5) - 2.5;
+            let price = groups[groupKey].basePrice * (1 + (variancePercent / 100));
+            price = Math.round(price * 100) / 100;
 
             // Add Variant (Unique by Color + Network)
             // In reality, variants are unique combinations of attributes not in the group key.
@@ -103,39 +107,13 @@
             if (variant) {
                 variant.quantity += qty;
             } else {
-                // Randomize offer status for demo purposes
+                // Do not randomize offer status for demo purposes during initial generation.
+                // Offers will only be created on demand (e.g. initial load logic in v2.js or Reset Demo Data)
                 let status = null;
                 let offerQty = 0;
                 let offerPrice = 0;
-                const rand = Math.random();
-
-                if (rand < 0.20) { // Increased probability to 20% for testing
-                    // Assign a status
-                    if (rand < 0.05) status = 'Pending';
-                    else if (rand < 0.10) status = 'Countered';
-                    else if (rand < 0.15) status = 'Accepted';
-                    else status = 'Rejected';
-
-                    // Generate realistic offer values
-                    offerQty = Math.floor(Math.random() * qty) + 1; // 1 to Available Qty
-
-                    // Offer price: List Price - ($5 to $25)
-                    const discount = 5 + (Math.random() * 20);
-                    offerPrice = Math.max(0, price - discount);
-                    offerPrice = Math.round(offerPrice * 100) / 100; // Round to 2 decimals
-
-                    // Logic for Countered status
-                    if (status === 'Countered') {
-                        // Counter Qty: Maybe same, maybe full avail
-                        counterQty = (Math.random() > 0.5) ? qty : offerQty;
-
-                        // Counter Price: Between Offer and List
-                        const spread = price - offerPrice;
-                        const counterBump = spread * (0.3 + Math.random() * 0.4); // 30-70% of the spread
-                        counterPrice = offerPrice + counterBump;
-                        counterPrice = Math.round(counterPrice * 100) / 100;
-                    }
-                }
+                let counterQty = 0;
+                let counterPrice = 0;
 
                 groups[groupKey].variants.push({
                     sku: sku,

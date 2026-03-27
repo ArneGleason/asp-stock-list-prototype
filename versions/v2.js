@@ -359,6 +359,8 @@ $(function () {
             'keydown .control-input': 'handleInputKeydown',
             'click .btn-generate-xlsx': 'generateXLSX',
             'click .drawer-clear-pinned': 'clearPinnedDrawer',
+            'click .drawer-clear-active': 'clearActiveDrawer',
+            'click .drawer-clear-cart': 'clearCartDrawer',
             'click .btn-reset-demo-data': 'resetDemoData',
             'click #drawer-menu-btn': 'toggleMenu',
             'click .btn-place-offer': 'placeOffers',
@@ -1497,6 +1499,15 @@ $(function () {
                     clearedCount++;
                     if (!item.offerStatus || item.offerStatus === 'Draft') {
                         delete items[sku];
+                        // Clear from MockApi to prevent fallback to old demo data
+                        if (window.MockApi && window.MockApi.getVariant) {
+                            const mockV = window.MockApi.getVariant(sku);
+                            if (mockV) {
+                                mockV.offerStatus = null;
+                                mockV.offerQty = 0;
+                                mockV.offerPrice = 0;
+                            }
+                        }
                     }
                 }
             });
@@ -1505,6 +1516,74 @@ $(function () {
                 OfferBuilderState.save();
                 OfferBuilderState.triggerUpdate();
                 showToast(`Cleared ${clearedCount} pinned items.`, 'success');
+            }
+        },
+
+        clearActiveDrawer: function (e) {
+            e.preventDefault();
+            this.$('#drawer-overflow-menu').removeClass('open');
+
+            const items = OfferBuilderState.pinnedItems;
+            let clearedCount = 0;
+            
+            Object.keys(items).forEach(sku => {
+                const item = items[sku];
+                if (item.offerStatus && item.offerStatus !== 'Draft' && item.offerStatus !== 'In Cart') {
+                    item.offerStatus = 'Draft';
+                    clearedCount++;
+                    if (!item.isPinned) {
+                        delete items[sku];
+                        // Clear from MockApi to prevent fallback to old demo data
+                        if (window.MockApi && window.MockApi.getVariant) {
+                            const mockV = window.MockApi.getVariant(sku);
+                            if (mockV) {
+                                mockV.offerStatus = null;
+                                mockV.offerQty = 0;
+                                mockV.offerPrice = 0;
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (clearedCount > 0) {
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+                showToast(`Cleared ${clearedCount} active offers.`, 'success');
+            }
+        },
+
+        clearCartDrawer: function (e) {
+            e.preventDefault();
+            this.$('#drawer-overflow-menu').removeClass('open');
+
+            const items = OfferBuilderState.pinnedItems;
+            let clearedCount = 0;
+            
+            Object.keys(items).forEach(sku => {
+                const item = items[sku];
+                if (item.offerStatus === 'In Cart') {
+                    item.offerStatus = 'Draft';
+                    clearedCount++;
+                    if (!item.isPinned) {
+                        delete items[sku];
+                        // Clear from MockApi to prevent fallback to old demo data
+                        if (window.MockApi && window.MockApi.getVariant) {
+                            const mockV = window.MockApi.getVariant(sku);
+                            if (mockV) {
+                                mockV.offerStatus = null;
+                                mockV.offerQty = 0;
+                                mockV.offerPrice = 0;
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (clearedCount > 0) {
+                OfferBuilderState.save();
+                OfferBuilderState.triggerUpdate();
+                showToast(`Cleared ${clearedCount} items from cart.`, 'success');
             }
         },
 
@@ -3130,26 +3209,7 @@ $(function () {
             $('#search-clear').on('click', this.clearSearch.bind(this));
             $('#active-filters-container').on('click', '.remove-filter', this.removeFilterChip.bind(this));
 
-            // Auto-ingest active offers on sync
-            this.listenTo(this.collection, 'sync', () => {
-                const activeVariants = [];
-                this.collection.each(model => {
-                    const variants = model.get('variants') || [];
-                    variants.forEach(v => {
-                        // Enrich variant with parent data needed for OfferBuilderState
-                        if (v.offerStatus && v.offerStatus !== 'Draft') {
-                            v.group_id = model.id;
-                            v.model = model.get('model');
-                            v.manufacturer = model.get('manufacturer');
-                            v.grade = model.get('grade');
-                            v.warehouse = model.get('warehouse');
-                            v.capacity = model.get('capacity');
-                            activeVariants.push(v);
-                        }
-                    });
-                });
-                OfferBuilderState.importActiveOffers(activeVariants);
-            });
+            // Removing auto-ingest active offers on sync to prevent pagination from adding mock data
         },
 
         toggleDrawer: function () {
@@ -3770,6 +3830,30 @@ $(function () {
     new GlobalControlsView();
 
     OfferBuilderState.init();
+
+    // On initial load, create demo data if nothing is pinned yet
+    // This allows realistic demo data the first time without regenerating on pagination
+    if (Object.keys(OfferBuilderState.pinnedItems).length === 0) {
+        if (window.MockApi && window.MockApi.resetDemoData) {
+            const initialDemoOffers = window.MockApi.resetDemoData();
+            OfferBuilderState.importActiveOffers(initialDemoOffers);
+        }
+    } else {
+        // Sync MockApi so stock list models reflect restored local storage offers
+        Object.values(OfferBuilderState.pinnedItems).forEach(pinned => {
+            if (window.MockApi && window.MockApi.getVariant) {
+                const mockV = window.MockApi.getVariant(pinned.sku);
+                if (mockV && pinned.offerStatus && pinned.offerStatus !== 'Draft') {
+                    mockV.offerStatus = pinned.offerStatus;
+                    mockV.offerQty = pinned.qty;
+                    mockV.offerPrice = pinned.price;
+                    mockV.counterQty = pinned.counterQty;
+                    mockV.counterPrice = pinned.counterPrice;
+                }
+            }
+        });
+    }
+
     StockListPresets.init();
     new PresetControlView({ collection: stockCollection }); // Moved here
 
