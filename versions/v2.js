@@ -4,6 +4,32 @@
  */
 
 $(function () {
+    // Global Toast Implementation
+    window.showToast = function (message, type = 'success') {
+        const toast = $('<div class="app-toast">' + message + '</div>');
+        toast.css({
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: type === 'success' ? '#28a745' : '#dc3545',
+            color: '#fff',
+            padding: '10px 25px',
+            borderRadius: '5px',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+            zIndex: 10000,
+            opacity: 0,
+            transition: 'opacity 0.3s',
+            fontWeight: '600',
+            fontSize: '14px'
+        });
+        $('body').append(toast);
+        setTimeout(() => toast.css('opacity', 1), 10);
+        setTimeout(() => {
+            toast.css('opacity', 0);
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    };
 
     // --- Models & Collections ---
 
@@ -2464,6 +2490,9 @@ $(function () {
                     warehouse: this.state.filters.warehouse,
                     manufacturer: this.state.filters.manufacturer,
                     model: this.state.filters.model,
+                    capacity: this.state.filters.capacity,
+                    color: this.state.filters.color,
+                    network: this.state.filters.network,
                     grade: this.state.filters.grade,
                     lockStatus: this.state.filters.lockStatus,
                     includeOos: this.state.filters.includeOos,
@@ -2576,11 +2605,12 @@ $(function () {
                 addChip('Search', 'search', filters.search);
             }
 
-            ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade'].forEach(type => {
+            ['category', 'warehouse', 'lockStatus', 'manufacturer', 'model', 'grade', 'capacity', 'color', 'network'].forEach(type => {
                 if (filters[type] && filters[type].length > 0) {
                     filters[type].forEach(val => {
                         let displayName = type.charAt(0).toUpperCase() + type.slice(1);
                         if (type === 'lockStatus') displayName = 'Lock Status';
+                        if (type === 'network') displayName = 'Network';
                         addChip(displayName, type, val);
                     });
                 }
@@ -2908,8 +2938,22 @@ $(function () {
 
             this.collection.each(model => {
                 const data = model.toJSON();
-                // Enrich variants with current OfferBuilderState (to get latest status/qty)
+                const filters = this.collection.state.filters;
+
+                // Filter variants to show only those matching variant-level filters
                 if (data.variants) {
+                    data.variants = data.variants.filter(v => {
+                        if (!filters.includeOos && (!v.quantity || parseInt(v.quantity) === 0)) return false;
+                        if (filters.color && filters.color.length > 0 && !filters.color.includes(v.color)) return false;
+                        if (filters.network && filters.network.length > 0 && !filters.network.includes(v.network)) return false;
+                        if (filters.lockStatus && filters.lockStatus.length > 0 && !filters.lockStatus.includes(v.lockStatus)) return false;
+                        return true;
+                    });
+
+                    // Update group level quantity to reflect only visible variants
+                    data.quantity = data.variants.reduce((sum, v) => sum + parseInt(v.quantity || 0), 0);
+
+                    // Enrich variants with current OfferBuilderState (to get latest status/qty)
                     data.variants.forEach(v => {
                         const pinned = OfferBuilderState.pinnedItems[v.sku];
                         if (pinned) {
@@ -3194,7 +3238,9 @@ $(function () {
             'click #drawer-backdrop': 'handleBackdropClick',
             'click .filter-section-header': 'toggleSection',
             'keyup .facet-search-input': 'handleFacetSearch',
-            'click .facet-search-clear': 'clearFacetSearch'
+            'click .facet-search-clear': 'clearFacetSearch',
+            'click #btn-find-similar': 'handleFindSimilar',
+            'keypress #find-similar-sku-input': 'handleFindSimilarKeypress'
         },
 
         initialize: function () {
@@ -3248,6 +3294,65 @@ $(function () {
             if (e.target && e.target.id === 'drawer-backdrop') {
                 this.closeDrawer();
             }
+        },
+
+        handleFindSimilarKeypress: function(e) {
+            if (e.which === 13) {
+                this.handleFindSimilar(e);
+            }
+        },
+
+        handleFindSimilar: function(e) {
+            e.preventDefault();
+            const skuInput = this.$('#find-similar-sku-input').val().trim();
+            const feedbackEl = this.$('#find-similar-feedback');
+
+            if (!skuInput) {
+                feedbackEl.text('Please enter a SKU.').css('color', '#d9534f').show();
+                return;
+            }
+
+            let data = null;
+            if (window.MockApi && window.MockApi.getVariantWithGroup) {
+                data = window.MockApi.getVariantWithGroup(skuInput);
+            }
+
+            if (!data) {
+                feedbackEl.text('SKU not found.').css('color', '#d9534f').show();
+                return;
+            }
+
+            feedbackEl.hide();
+
+            const group = data.group;
+            const variant = data.variant;
+
+            this.collection.state.filters = {
+                category: group.category ? [group.category] : [],
+                warehouse: group.warehouse ? [group.warehouse] : [],
+                manufacturer: group.manufacturer ? [group.manufacturer] : [],
+                model: group.rawModel ? [group.rawModel] : [],
+                grade: group.grade ? [group.grade] : [],
+                capacity: group.capacity ? [group.capacity] : [],
+                color: variant.color ? [variant.color] : [],
+                network: variant.network && variant.network !== 'N/A' ? [variant.network] : [],
+                lockStatus: variant.lockStatus ? [variant.lockStatus] : [],
+                includeOos: true,
+                search: ''
+            };
+
+            $('#search-input').val('');
+            this.collection.state.start = 0;
+            this.$('#find-similar-sku-input').val('');
+
+            showToast('Filters updated to match ' + skuInput, 'success');
+            
+            // On mobile, automatically close drawer to show results
+            if (window.innerWidth < 992) {
+                this.closeDrawer();
+            }
+
+            this.collection.fetch();
         },
 
         removeFilterChip: function (e) {
